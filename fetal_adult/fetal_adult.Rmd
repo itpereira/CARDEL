@@ -1,0 +1,23 @@
+---
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+---
+title: "fetal_adult"
+output: html_document
+
+
+```{r}
+library(dplyr)
+library(tidyr)
+library(stringr)
+```
+
+#Retrieve data from:
+
+
+```{r}
+
+#Creating a .txt file to batch download fastq from GEO/SRA/ENA
+#First, get the report.tsv from ENA website with all the info

@@ -1,0 +1,101 @@
+---
+title: "fetal_adult_nextflow.Rmd"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(dplyr)
+library(tidyverse)
+```
+
+1) Creating design file:
+sample,fastq_1,fastq_2,strandedness
+
+```{r}
+#read and adjust samplesheet
+samplesheet <- read.csv("/scratch/Shares/rinn/isabela/CARDEL/fetal_adult/samplesheet.csv")
+
+samplesheet$sample <- gsub("weeks", "W", gsub("sample", "", gsub(" ", "", samplesheet$sample_title)))
+samplesheet$sample <- paste0("fetal_", samplesheet$sample)
+samplesheet$sample <- gsub("fetal_heart", "adult_heart", samplesheet$sample)
+samplesheet$sample_number <- c(1:13)
+samplesheet$sample <- gsub("W[1-9]", "W", samplesheet$sample)
+samplesheet$sample <- gsub("_6(.*)", "_", samplesheet$sample)
+samplesheet$sample <- paste(samplesheet$sample, samplesheet$sample_number, sep = "")
+
+design <- samplesheet %>%
+  select(sample, fastq_1, fastq_2)
+design$strandedness <- "unstranded"
+
+design$fastq_1 <- paste0("/scratch/Shares/rinn/isabela/CARDEL/data/", design$fastq_1)
+design$fastq_2 <- paste0("/scratch/Shares/rinn/isabela/CARDEL/data/", design$fastq_2)
+design$sample <- gsub("__", "_", design$sample)
+
+design <- design %>%
+  select(-...1)
+#save
+write.csv(design, "/scratch/Shares/rinn/isabela/CARDEL/fetal_adult/design.csv", row.names = F)
+
+design <- read_csv("/scratch/Shares/rinn/isabela/CARDEL/fetal_adult/design.csv")
+```
+
+2) nextflow.config file
+```{bash}
+nano nextflow.config
+
+process {
+  executor='slurm'
+  queue='short'
+  memory='16 GB'
+  maxForks=40
+}
+```
+
+3) run.sh file
+```{bash}
+nano run.sh
+
+#!/bin/bash
+#SBATCH -p long
+#SBATCH --job-name=fetal-adult
+#SBATCH --mail-type=END,FAIL
+#SBATCH --mail-user=isabela.pereira@colorado.edu
+#SBATCH --nodes=1
+#SBATCH --ntasks=1
+#SBATCH --mem=6gb
+#SBATCH --time=30:00:00
+#SBATCH --output=nextflow.out
+#SBATCH --error=nextflow.err
+
+pwd; hostname; date
+echo "Go heart!"
+
+module load singularity/3.1.1
+
+nextflow run nf-core/rnaseq -r 3.8.1 \
+-resume \
+-profile singularity \
+--input /scratch/Shares/rinn/isabela/CARDEL/fetal_adult/design.csv \
+--fasta /scratch/Shares/rinn/genomes/Homo_sapiens/Gencode/v38/GRCh38.p13.genome.fa.gz \
+--gtf /scratch/Shares/rinn/genomes/Homo_sapiens/Gencode/v38/gencode.v38.annotation.gtf \
+--aligner star_salmon \
+--gencode \
+--email isabela.pereira@colorado.edu \
+--outdir /scratch/Shares/rinn/isabela/CARDEL/fetal_adult/results \
+-c nextflow.config
+
+date
+```
+
+4) RUN!!
+```{bash}
+sbatch run.sh
+
+#check status
+tail -f nextflow.out
+```
+
+
