@@ -14,10 +14,147 @@ library(tidyr)
 library(stringr)
 ```
 
-#Retrieve data from:
+#Retrieve data from: 
+
+> Adult Heart tissue = 4 samples, paired-end
+https://www.ebi.ac.uk/ena/browser/view/PRJEB4337?show=reads
+https://www.ebi.ac.uk/arrayexpress/experiments/E-MTAB-2836/samples/?full=true&s_sortby=col_14&s_sortorder=ascending&s_page=13&s_pagesize=25
+E-MTAB-1733 - RNA-seq of coding RNA from tissue samples of 122 human individuals representing 32 different tissues
+Heart: ERR315356; ERR315430; ERR315367; ERR315331
+
+> Fetal heart tissue = 11 samples (2 different studies)
+RNA-Seq (Total RNA) Fetal Heart (SRR643779): Fetal Heart primary tissue, day 91
+RNA-Seq (Total RNA) Fetal Heart (SRR643778): Fetal Heart primary tissue, day 120
+
+https://www.ebi.ac.uk/ena/browser/view/PRJEB27811?show=reads
+PRJEB27811: RNA-Seq of human fetal hearts at 9, 12 and 16 weeks of gestation (3 replicates each = 9 samples)
+
 
 
 ```{r}
 
-#Creating a .txt file to batch download fastq from GEO/SRA/ENA
+#Creating a .txt file to batch download fastq
+
 #First, get the report.tsv from ENA website with all the info
+#From SRR I downloaded individually from website
+
+#adult = 4 samples
+geo_data_a <- read.table("/scratch/Shares/rinn/isabela/CARDEL/fetal_adult/filereport_read_run_PRJEB4337_tsv.txt", sep = "\t", header = T)
+
+geo_data_a <- geo_data_a %>%
+  filter(run_accession == "ERR315356" | run_accession == "ERR315430" | run_accession == "ERR315367" | run_accession == "ERR315331")
+
+geo_data_a$fastq_ftp1 <- gsub(";(.*)", "", geo_data_a$fastq_ftp)
+geo_data_a$fastq_ftp2 <- gsub("(.*);", "", geo_data_a$fastq_ftp)
+
+geo_data_a$fastq_ftp1 <- paste0("ftp://", geo_data_a$fastq_ftp1)
+geo_data_a$fastq_ftp2 <- paste0("ftp://", geo_data_a$fastq_ftp2)
+
+ftp1_a <- geo_data_a %>%
+  dplyr::select(fastq_ftp1) 
+names(ftp1_a)[names(ftp1_a) == "fastq_ftp1"] <- "ftp_fastq"
+
+ftp2_a <- geo_data_a %>%
+  dplyr::select(fastq_ftp2)
+names(ftp2_a)[names(ftp2_a) == "fastq_ftp2"] <- "ftp_fastq"
+
+ftp_adult <- rbind(ftp1_a, ftp2_a)
+
+#fetal = 9 samples
+geo_data <- read.table("/scratch/Shares/rinn/isabela/CARDEL/fetal_adult/filereport_read_run_PRJEB27811_tsv.txt", sep = "\t", header = T)
+geo_data <- geo_data %>%
+  select(-library_name)
+
+geo_data$fastq_ftp1 <- gsub(";(.*)", "", geo_data$fastq_ftp)
+geo_data$fastq_ftp2 <- gsub("(.*);", "", geo_data$fastq_ftp)
+
+geo_data$fastq_ftp1 <- paste0("ftp://", geo_data$fastq_ftp1)
+geo_data$fastq_ftp2 <- paste0("ftp://", geo_data$fastq_ftp2)
+
+ftp1 <- geo_data %>%
+  dplyr::select(fastq_ftp1) 
+names(ftp1)[names(ftp1) == "fastq_ftp1"] <- "ftp_fastq"
+
+ftp2 <- geo_data %>%
+  dplyr::select(fastq_ftp2)
+names(ftp2)[names(ftp2) == "fastq_ftp2"] <- "ftp_fastq"
+
+ftp_download <- rbind(ftp1, ftp2)
+
+# merge adult tissue
+
+ftp_all <- rbind(ftp_download, ftp_adult)
+
+write.table(ftp_all, "ftp_all_download.txt", row.names = F, col.names = F, quote = F)
+
+```
+
+```{bash}
+
+#batch download all fastq files using wget
+#open screen
+screen
+
+wget -i ftp_all_download.txt
+```
+
+```{r}
+#checking md5sum
+
+#adult
+geo_data_a$fastq_1 <- gsub("(.*)/ERR315[0-9][0-9][0-9]/ERR*", "ERR", geo_data_a$fastq_ftp1)
+geo_data_a$fastq_2 <- gsub("(.*)/ERR315[0-9][0-9][0-9]/ERR*", "ERR", geo_data_a$fastq_ftp2)
+
+geo_data_a$fastq_md5_1 <- gsub(";(.*)", "", geo_data_a$fastq_md5)
+geo_data_a$fastq_md5_2 <- gsub("(.*);", "", geo_data_a$fastq_md5)
+
+md5_1_a <- geo_data_a %>%
+  dplyr::select(fastq_md5_1,fastq_1) 
+names(md5_1_a)[names(md5_1_a) == "fastq_1"] <- "fastq"
+names(md5_1_a)[names(md5_1_a) == "fastq_md5_1"] <- "md5"
+
+md5_2_a <- geo_data_a %>%
+  dplyr::select(fastq_md5_2,fastq_2) 
+names(md5_2_a)[names(md5_2_a) == "fastq_2"] <- "fastq"
+names(md5_2_a)[names(md5_2_a) == "fastq_md5_2"] <- "md5"
+
+md5_a <- rbind(md5_1_a, md5_2_a)
+
+#fetal
+geo_data$fastq_1 <- gsub("(.*)/ERR27047[1-2][0-9]/ERR*", "ERR", geo_data$fastq_ftp1)
+geo_data$fastq_2 <- gsub("(.*)/ERR27047[1-2][0-9]/ERR*", "ERR", geo_data$fastq_ftp2)
+
+geo_data$fastq_md5_1 <- gsub(";(.*)", "", geo_data$fastq_md5)
+geo_data$fastq_md5_2 <- gsub("(.*);", "", geo_data$fastq_md5)
+
+md5_1 <- geo_data %>%
+  dplyr::select(fastq_md5_1,fastq_1) 
+names(md5_1)[names(md5_1) == "fastq_1"] <- "fastq"
+names(md5_1)[names(md5_1) == "fastq_md5_1"] <- "md5"
+
+md5_2 <- geo_data %>%
+  dplyr::select(fastq_md5_2,fastq_2) 
+names(md5_2)[names(md5_2) == "fastq_2"] <- "fastq"
+names(md5_2)[names(md5_2) == "fastq_md5_2"] <- "md5"
+
+md5 <- rbind(md5_1, md5_2)
+
+# merge all
+
+md5_all <- rbind(md5, md5_a)
+
+write.table(md5_all, "md5.txt", sep = "  ", quote = FALSE, row.names = FALSE, col.names = FALSE)
+
+```
+
+```{bash}
+#To output do the following in the directory with files to be tested
+md5sum -c md5.txt > md5_status.txt
+```
+
+```{r}
+#merge and save as sampleesheet
+samplesheet <- rbind(geo_data, geo_data_a)
+write.csv(samplesheet, "/scratch/Shares/rinn/isabela/CARDEL/fetal_adult/samplesheet.csv")
+```
+
