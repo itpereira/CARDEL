@@ -1,0 +1,33 @@
+---
+title: "fetal_adult_analysis.Rmd"
+output: html_document
+
+---
+```{r}
+library(tidyverse)
+library(dplyr)
+```
+
+
+```{r - results from pipeline - transcripts}
+#read in tpm
+tpm <- read.table("/scratch/Shares/rinn/isabela/CARDEL/fetal_adult/results/star_salmon/salmon.merged.gene_tpm.tsv", header = T)
+
+
+
+#read in counts
+counts <- read.table("/scratch/Shares/rinn/isabela/CARDEL/fetal_adult/results/star_salmon/salmon.merged.gene_counts.tsv", header = T)
+
+counts <- counts %>%
+  column_to_rownames(var = "tx") %>%
+  select(-gene_id)
+
+counts <- counts[rowSums(counts) > 0,]
+
+counts <- counts[, rownames(samples)]
+
+#quantified transcripts in the datase
+txs <- rownames(tpm)
+#checking
+stopifnot(all(rownames(tpm) == rownames(counts)))
+```
