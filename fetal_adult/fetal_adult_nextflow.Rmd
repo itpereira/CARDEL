@@ -15,7 +15,7 @@ library(tidyverse)
 sample,fastq_1,fastq_2,strandedness
 
 ```{r}
-#read and adjust samplesheet
+#read and adjust samplesheet (don't need to run again, it's saved)
 samplesheet <- read.csv("/scratch/Shares/rinn/isabela/CARDEL/fetal_adult/samplesheet.csv")
 
 samplesheet$sample <- gsub("weeks", "W", gsub("sample", "", gsub(" ", "", samplesheet$sample_title)))
@@ -23,8 +23,12 @@ samplesheet$sample <- paste0("fetal_", samplesheet$sample)
 samplesheet$sample <- gsub("fetal_heart", "adult_heart", samplesheet$sample)
 samplesheet$sample_number <- c(1:13)
 samplesheet$sample <- gsub("W[1-9]", "W", samplesheet$sample)
-samplesheet$sample <- gsub("_6(.*)", "_", samplesheet$sample)
-samplesheet$sample <- paste(samplesheet$sample, samplesheet$sample_number, sep = "")
+samplesheet$sample <- gsub("_6(.*)", "", samplesheet$sample)
+samplesheet$sample <- paste(samplesheet$sample, samplesheet$sample_number, sep = "_")
+
+# save over
+write.csv(samplesheet, "/scratch/Shares/rinn/isabela/CARDEL/fetal_adult/samplesheet.csv")
+
 
 design <- samplesheet %>%
   select(sample, fastq_1, fastq_2)

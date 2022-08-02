@@ -3,13 +3,17 @@ title: "fetal_adult_analysis.Rmd"
 output: html_document
 
 ---
-```{r}
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(pheatmap)
 library(tidyverse)
+library(ggplot2)
+library(DESeq2)
 library(dplyr)
 ```
 
 
-```{r - results from pipeline - transcripts}
+```{r - results from pipeline}
 #read in tpm
 tpm <- read.table("/scratch/Shares/rinn/isabela/CARDEL/fetal_adult/results/star_salmon/salmon.merged.gene_tpm.tsv", header = T)
 
@@ -19,15 +23,89 @@ tpm <- read.table("/scratch/Shares/rinn/isabela/CARDEL/fetal_adult/results/star_
 counts <- read.table("/scratch/Shares/rinn/isabela/CARDEL/fetal_adult/results/star_salmon/salmon.merged.gene_counts.tsv", header = T)
 
 counts <- counts %>%
-  column_to_rownames(var = "tx") %>%
-  select(-gene_id)
+  column_to_rownames(var = "gene_id") %>%
+  select(-gene_name)
 
+#clean those with all 0 counts
 counts <- counts[rowSums(counts) > 0,]
 
-counts <- counts[, rownames(samples)]
-
-#quantified transcripts in the datase
-txs <- rownames(tpm)
-#checking
-stopifnot(all(rownames(tpm) == rownames(counts)))
 ```
+
+```{r - samples}
+# Let's set names for 2 distinct analysis:
+#   1) all fetal tissues as replicates (9) for : fetal
+#   2) each fetal stage as a group, 3 replicates each
+
+samplesheet <- read.csv("/scratch/Shares/rinn/isabela/CARDEL/fetal_adult/samplesheet.csv")
+
+tissue <- c("fetal", "fetal","fetal","fetal","fetal","fetal","fetal","fetal","fetal", "adult", "adult", "adult", "adult")
+
+samples <- samplesheet %>%
+  select(sample) %>%
+  mutate(tissue = tissue)
+
+samples$tissue_time <- gsub("W_[1-9]", "W", samples$sample)
+samples$tissue_time <- gsub("_heart_1[0-3]", "", samples$tissue_time)
+
+#transform comparisons in factor for deseq
+factor_1 <- c("fetal", "adult")
+factor_2 <- c("fetal_9W", "fetal_12W", "fetal_16W", "adult")
+
+samples$tissue <- factor(samples$tissue, levels = factor_1 )
+samples$tissue_time <- factor(samples$tissue_time, levels = factor_2 )
+```
+
+```{r - prep for deseq}
+#reordering and checking sample_id (it MUST be the same order in both)
+samples$sample <- as.character(samples$sample)
+
+col_order <- c(samples$sample)
+counts <- counts[, col_order]
+all(colnames(counts) == samples$sample)
+
+#change to matrix
+counts <- as.matrix(counts)
+
+# Now we need to round the values and change to integer from numeric.
+counts <- round(counts)
+
+# change counts to integer (this is required by DESeq)
+mode(counts) <- "integer"
+```
+
+Let's run the DE analysis:
+
+```{r}
+# Analysis 1: fetal vs adult
+
+dds <- DESeqDataSetFromMatrix(counts, samples,
+                              design = ~ tissue)
+dds_run <- DESeq(dds)
+resultsNames(dds_run)
+
+adult_fetal <- as.data.frame(results(dds_run, name = "tissue_adult_vs_fetal")) %>%
+  rownames_to_column(var = "gene_id")
+
+
+# CARDEL : ENSG00000260802
+
+##bring gene_name to the results table
+
+
+# use this to change level: ###### template
+res_F2_F6 <- results(dds_F2, name="grad_fraction_F4_vs_F2")
+#summary(res_F2_F3)
+write.csv(as.data.frame(res_F2_F6), 
+          file="/scratch/Shares/rinn/isabela/rna_protein_complexes/analysis/00_mESC_grad/analysis/02_differential_expression/results/deseq_fractions/grad_fraction_F4_vs_F2.csv")
+
+#F3
+dds$grad_fraction <- relevel(dds$grad_fraction, ref = "F3")
+dds_F3 <- DESeq(dds, test="LRT", reduced=~1)
+resultsNames(dds_F3)
+
+res_F3 <- results(dds_F3, name="grad_fraction_F11_vs_F3")
+write.csv(as.data.frame(res_F3), 
+          file="/scratch/Shares/rinn/isabela/rna_protein_complexes/analysis/00_mESC_grad/analysis/02_differential_expression/results/deseq_fractions/grad_fraction_F11_vs_F3.csv")
+
+```
+
