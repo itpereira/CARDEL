@@ -19,12 +19,11 @@ sample,fastq_1,fastq_2,strandedness
 
 sample <- c("D4_R1", "D4_R2", "D4_R3", "D9_R1", "D9_R2", "D9_R3")
 fastq_1 <- c("/scratch/Shares/rinn/isabela/CARDEL/data/6_S6_L002_R1_001.fastq.gz",
-           "/scratch/Shares/rinn/isabela/CARDEL/data/8_S8_L002_R1_001.fastq.gz",
-           "/scratch/Shares/rinn/isabela/CARDEL/data/16_S16_L004_R1_001.fastq.gz",
-           "/scratch/Shares/rinn/isabela/CARDEL/data/18_S18_L004_R1_001.fastq.gz",
-           "/scratch/Shares/rinn/isabela/CARDEL/data/26_S26",
-           "/scratch/Shares/rinn/isabela/CARDEL/data/28_S28"
-             )
+            "/scratch/Shares/rinn/isabela/CARDEL/data/16_S16_L004_R1_001.fastq.gz",
+             "/scratch/Shares/rinn/isabela/CARDEL/data/26_S26_L008_R1_001.fastq.gz",
+            "/scratch/Shares/rinn/isabela/CARDEL/data/8_S8_L002_R1_001.fastq.gz",
+            "/scratch/Shares/rinn/isabela/CARDEL/data/18_S18_L004_R1_001.fastq.gz",
+              "/scratch/Shares/rinn/isabela/CARDEL/data/28_S28_L008_R1_001.fastq.gz")
 
 design <- data.frame(sample, fastq_1)
 

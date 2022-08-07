@@ -1,6 +1,6 @@
 #!/bin/bash
 #SBATCH -p long
-#SBATCH --job-name=d4_d9
+#SBATCH --job-name=d4_d9_new
 #SBATCH --mail-type=END,FAIL
 #SBATCH --mail-user=isabela.pereira@colorado.edu
 #SBATCH --nodes=1

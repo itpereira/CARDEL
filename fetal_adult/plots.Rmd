@@ -40,16 +40,41 @@ load("/scratch/Shares/rinn/isabela/CARDEL/fetal_adult/analysis/adult_fetal.RData
 load("/scratch/Shares/rinn/isabela/CARDEL/fetal_adult/analysis/adult_fetal_d4_d9_results.RData")
 ```
 
+```{r - d4_d9}
+
+```
+
+
 ##working here
 ```{r - volcano plot}
 
 #D4_D9 <<<<<<<<<<<<<<<<<<<<<<<<<<<<< usar aqui a nova table
 
-D4_D9_volcano <- d4_d9 %>%
-  select(Row.names, log2FoldChange, padj, external_gene_name)
+D4_D9_volcano <- d4_d9_deseq %>%
+  select(gene_id, gene_name, log2FoldChange, padj)
+
+#clean NA from padj
+D4_D9_volcano <- D4_D9_volcano[complete.cases(D4_D9_volcano), ]
+
+#assign UP & DOWN
+D4_D9_volcano$deg <- "NO" #set non-deg first
+D4_D9_volcano$deg[D4_D9_volcano$log2FoldChange >= 2 & D4_D9_volcano$padj <= 0.05] <- "UP"
+D4_D9_volcano$deg[D4_D9_volcano$log2FoldChange <= -2 & D4_D9_volcano$padj <= 0.05] <- "DOWN"
+
+#VOLCANO PLOT = log2FC & -log10(padj)
+
+ggplot(D4_D9_volcano, aes(x=log2FoldChange, y=-log10(padj), col=deg)) + 
+  geom_point() +
+  #theme_minimal() +
+  scale_color_manual(values=c("#053061", "black", "#67001F")) + #color assigned in alphabetical order (use same as heatmap = brewer palette RdBu)
+  #geom_text_repel() + #this add names of top10 genes
+  theme(text = element_text(size = 12), axis.text = element_text(size = 12))  
+
+#save as pdf landscape 4 x 3.5
 
 
-#adult_fetal
+
+#### adult_fetal
 # padj < 0.05, all DEG
 
 fetal_volcano <- adult_fetal %>%

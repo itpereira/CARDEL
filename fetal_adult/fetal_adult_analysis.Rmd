@@ -307,6 +307,14 @@ d4_d9 <- read.csv("/scratch/Shares/rinn/isabela/CARDEL/fetal_adult/results/DEG_D
 
 up_d9 <- d4_d9 %>%
   filter(logFC >= 2) #keep same parameter than earlier, but maybe try others
+#940
+
+##### new analysis, nextflow with updated annotation
+
+d4_d9_deseq <- read.csv("/scratch/Shares/rinn/isabela/CARDEL/d4_d9/d4_d9_deseq_results.csv")
+up_d9 <- d4_d9_deseq %>%
+  filter(padj <= 0.05, log2FoldChange >= 2)
+#1345
 ```
 
 ```{r}
@@ -314,21 +322,21 @@ up_d9 <- d4_d9 %>%
 
 #keep only gene_id_stable
 fetal_enriched$gene_id_stable <- gsub("[.]\\d+", "", fetal_enriched$gene_id)
-up_d9 <- up_d9 %>%
-  dplyr::rename(gene_id_stable = Row.names)
+#up_d9 <- up_d9 %>%
+#  dplyr::rename(gene_id_stable = Row.names)
 
 
 targets <- up_d9 %>%
-  filter(gene_id_stable %in% fetal_enriched$gene_id_stable)
-#98
+  filter(gene_id %in% fetal_enriched$gene_id)
+#98-old
+#151 - new
 
 #bring updated names ===== temp
-gene_name$gene_id_stable <- gene_id_stable <- gsub("[.]\\d+", "", gene_name$gene_id)
-
-targets <- targets %>%
+#gene_name$gene_id_stable <- gene_id_stable <- gsub("[.]\\d+", "", gene_name$gene_id)
+#targets <- targets %>%
   left_join(gene_name)
 
-write.csv(targets, "/scratch/Shares/rinn/isabela/CARDEL/fetal_adult/analysis/d9_fetal_targets.csv")
+write.csv(targets, "/scratch/Shares/rinn/isabela/CARDEL/fetal_adult/analysis/d9_fetal_targets2.csv")
 ```
 
 # WHY CARDEL?
@@ -339,7 +347,7 @@ Now is the challenge of finding a nice story to tell about CARDEL
 ```{r}
 # exclude those that are annotated in BP GOs:
 
-bp_go <- read.csv("/scratch/Shares/rinn/isabela/CARDEL/fetal_adult/analysis/gProfiler_hsapiens_8-6-2022_7-26-48 PM__intersections_BP.csv")
+bp_go <- read.csv("/scratch/Shares/rinn/isabela/CARDEL/fetal_adult/analysis/gProfiler_hsapiens_8-7-2022_4-14-42 PM__intersectionsBP.csv")
 
 bp_go_genes <- bp_go %>%
   filter(source == "GO:BP") %>%
@@ -350,9 +358,15 @@ bp_go_genes <- bp_go %>%
 
 targets_filter_bp <- targets %>%
   filter(!gene_name %in% bp_go_genes$genes_name)
-#good, list of 37
+#good, list of 37-old // 78 new
 
-#rank by logFC d4xd9 AND opposite in fetal_enriched
+#merge tpm
+tpmD4_D9 <- read.table("/scratch/Shares/rinn/isabela/CARDEL/d4_d9/results/star_salmon/salmon.merged.gene_tpm.tsv", header = T)
+
+targets_filter_bp <- targets_filter_bp %>%
+  left_join(tpmD4_D9)
+
+##NO#rank by logFC d4xd9 AND opposite in fetal_enriched
 fetal_logFC <- fetal_enriched %>%
   select(gene_id_stable, log2FoldChange)
 
@@ -378,3 +392,73 @@ save(adult_fetal, fetal_enriched, adult_enriched, d4_d9, up_d9, targets, targets
      file = "/scratch/Shares/rinn/isabela/CARDEL/fetal_adult/analysis/adult_fetal_d4_d9_results.RData")
 ```
 
+D4 vs D9 dataset - new nextflow run with updated annotation
+
+Let's run deseq in this comparison
+```{r - prep}
+#read in counts
+counts_d4_d9 <- read.table("/scratch/Shares/rinn/isabela/CARDEL/d4_d9/results/star_salmon/salmon.merged.gene_counts.tsv", header = T)
+
+counts_d4_d9 <- counts_d4_d9 %>%
+  column_to_rownames(var = "gene_id") %>%
+  select(-gene_name)
+
+#clean those with all 0 counts
+counts_d4_d9 <- counts_d4_d9[rowSums(counts_d4_d9) > 0,]
+
+#samples
+sample <- c("D4_R1", "D4_R2", "D4_R3", "D9_R1", "D9_R2", "D9_R3")
+day <- c("D4","D4", "D4", "D9", "D9", "D9")
+replicate <- c("R1", "R2", "R3", "R1", "R2", "R3")
+
+sample <- data.frame(sample, day, replicate)
+
+#transform comparisons in factor for deseq
+factor_1 <- c("D4", "D9")
+sample$day <- factor(sample$day, levels = factor_1 )
+
+```
+
+```{r - deseq}
+#reordering and checking sample_id (it MUST be the same order in both)
+sample$sample <- as.character(sample$sample)
+
+all(colnames(counts_d4_d9) == sample$sample)
+
+#change to matrix
+counts_d4_d9 <- as.matrix(counts_d4_d9)
+
+# Now we need to round the values and change to integer from numeric.
+counts_d4_d9 <- round(counts_d4_d9)
+
+# change counts to integer (this is required by DESeq)
+mode(counts_d4_d9) <- "integer"
+
+
+# Run DESEq
+
+dds <- DESeqDataSetFromMatrix(counts_d4_d9, sample,
+                              design = ~ day)
+dds_run <- DESeq(dds)
+resultsNames(dds_run)
+
+#save analysis
+write_rds(dds_run, "/scratch/Shares/rinn/isabela/CARDEL/d4_d9/deseq_d4_d9.rds")
+
+d4_d9_deseq <- as.data.frame(results(dds_run, name = "day_D9_vs_D4")) %>%
+  rownames_to_column(var = "gene_id") %>%
+  left_join(gene_name)
+
+#save table
+write.csv(d4_d9_deseq, "/scratch/Shares/rinn/isabela/CARDEL/d4_d9/d4_d9_deseq_results.csv")
+
+# extract rlog_counts if want to plot heatmaps
+rlog_counts <- dds %>%
+  rlog() %>%
+  assay() %>%
+  as.data.frame() 
+
+#save rlog_counts
+write_rds(rlog_counts,"/scratch/Shares/rinn/isabela/CARDEL/d4_d9/d4_d9_rlog_counts.csv" )
+
+```
