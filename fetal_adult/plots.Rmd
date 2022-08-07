@@ -1,0 +1,93 @@
+---
+title: "plots"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(ggplot2)
+library(DESeq2)
+library(VennDiagram)
+library(ggdendro)
+library(GenomicRanges)
+library(RColorBrewer)
+library(ggrepel)
+source("/scratch/Shares/rinn/isabela/rna_protein_complexes/analysis/util/_plot_theme.R")
+
+my_pal <- brewer.pal(n = 11, name = 'RdBu')
+```
+
+
+```{r - color palette}
+display.brewer.pal(n = 11, name = 'RdBu') #11 max colors in the palette
+
+brewer.pal(n = 11, name = 'RdBu') #gives the color codes
+#[1] (red) "#67001F" "#B2182B" "#D6604D" "#F4A582" "#FDDBC7" "#F7F7F7" "#D1E5F0" "#92C5DE" "#4393C3" #"#2166AC"
+#[11] "#053061" (blue)
+my_pal <- brewer.pal(n = 11, name = 'RdBu')
+
+#use this in ggplot
++ scale_color_brewer(palette = "RdBu") +
+```
+
+For color palette https://www.datanovia.com/en/blog/the-a-z-of-rcolorbrewer-palette/
+
+```{r}
+load("/scratch/Shares/rinn/isabela/CARDEL/fetal_adult/analysis/adult_fetal.RData")
+load("/scratch/Shares/rinn/isabela/CARDEL/fetal_adult/analysis/adult_fetal_d4_d9_results.RData")
+```
+
+##working here
+```{r - volcano plot}
+
+#D4_D9 <<<<<<<<<<<<<<<<<<<<<<<<<<<<< usar aqui a nova table
+
+D4_D9_volcano <- d4_d9 %>%
+  select(Row.names, log2FoldChange, padj, external_gene_name)
+
+
+#adult_fetal
+# padj < 0.05, all DEG
+
+fetal_volcano <- adult_fetal %>%
+  select(gene_id, gene_name, log2FoldChange, padj)
+
+#clean NA from padj
+fetal_volcano <- fetal_volcano[complete.cases(fetal_volcano), ]
+
+#assign UP & DOWN
+fetal_volcano$deg <- "NO" #set non-deg first
+fetal_volcano$deg[fetal_volcano$log2FoldChange >= 2 & fetal_volcano$padj <= 0.05] <- "UP"
+fetal_volcano$deg[fetal_volcano$log2FoldChange <= -2 & fetal_volcano$padj <= 0.05] <- "DOWN"
+
+#label for top 10 genes names <<<<<<<<<<<<<<<<< name here some of 98<< need work
+top_padj <- deg10_volcano %>%
+  filter(padj <= 0.05)
+top_up <- top_padj[with(top_padj,order(-log2FoldChange)),]
+top_up <- top_up[1:10,]
+
+top_down <- top_padj[with(top_padj,order(log2FoldChange)),]
+top_down <- top_down[1:10,]
+
+top_names <- rbind(top_down, top_up)
+top_names <- top_names %>%
+  mutate(label = top_names$external_gene_name)
+
+deg10_volcano <- deg10_volcano %>%
+  left_join(top_names)
+
+#aes(label = label)
+
+#VOLCANO PLOT = log2FC & -log10(padj)
+
+ggplot(fetal_volcano, aes(x=log2FoldChange, y=-log10(padj), col=deg)) + 
+  geom_point() +
+  #theme_minimal() +
+  scale_color_manual(values=c("#053061", "black", "#67001F")) + #color assigned in alphabetical order (use same as heatmap = brewer palette RdBu)
+  #geom_text_repel() + #this add names of top10 genes
+  theme(text = element_text(size = 12), axis.text = element_text(size = 12))  
+
+#save as pdf landscape 4 x 3.5
