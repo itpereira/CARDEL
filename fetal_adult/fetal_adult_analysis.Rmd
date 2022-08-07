@@ -10,6 +10,8 @@ library(tidyverse)
 library(ggplot2)
 library(DESeq2)
 library(dplyr)
+library(RColorBrewer)
+my_pal <- brewer.pal(n = 10, name = 'RdBu')
 ```
 
 
@@ -21,6 +23,9 @@ tpm <- read.table("/scratch/Shares/rinn/isabela/CARDEL/fetal_adult/results/star_
 
 #read in counts
 counts <- read.table("/scratch/Shares/rinn/isabela/CARDEL/fetal_adult/results/star_salmon/salmon.merged.gene_counts.tsv", header = T)
+
+gene_name <- counts %>%
+  select(gene_id, gene_name)
 
 counts <- counts %>%
   column_to_rownames(var = "gene_id") %>%
@@ -55,6 +60,27 @@ samples$tissue <- factor(samples$tissue, levels = factor_1 )
 samples$tissue_time <- factor(samples$tissue_time, levels = factor_2 )
 ```
 
+```{r - calculate mean tpm per sample}
+# Calculate mean following two type of sample grouping:
+#   1) all fetal tissues as replicates (9) for : fetal
+#   2) each fetal stage as a group, 3 replicates each
+
+tpm_mean_adult_fetal <- tpm %>%
+  pivot_longer(cols = adult_heart_10:fetal_9W_9, names_to = "sample", values_to = "tpm") %>%
+  left_join(samples) %>%
+  group_by(gene_id, tissue) %>% ####mean by tissue
+  mutate(mean_tpm_tissue = mean(tpm)) %>%
+  mutate(sd_tissue = sd(tpm, na.rm=TRUE))
+
+tpm_mean_adult_fetal <- tpm_mean_adult_fetal %>%
+  ungroup() %>%
+  group_by(gene_id, tissue_time) %>% ###mean by tissue_time
+  mutate(mean_tpm_time = mean(tpm)) %>%
+  mutate(sd_time = sd(tpm, na.rm=TRUE))
+
+write_rds(tpm_mean_adult_fetal, "/scratch/Shares/rinn/isabela/CARDEL/fetal_adult/analysis/tpm_mean.rds")
+```
+
 ```{r - prep for deseq}
 #reordering and checking sample_id (it MUST be the same order in both)
 samples$sample <- as.character(samples$sample)
@@ -73,6 +99,10 @@ counts <- round(counts)
 mode(counts) <- "integer"
 ```
 
+
+# CARDEL : ENSG00000260802
+
+
 Let's run the DE analysis:
 
 ```{r}
@@ -83,29 +113,264 @@ dds <- DESeqDataSetFromMatrix(counts, samples,
 dds_run <- DESeq(dds)
 resultsNames(dds_run)
 
-adult_fetal <- as.data.frame(results(dds_run, name = "tissue_adult_vs_fetal")) %>%
-  rownames_to_column(var = "gene_id")
+#save analysis
+write_rds(dds_run, "/scratch/Shares/rinn/isabela/CARDEL/fetal_adult/analysis/dds_run1.rds")
 
+adult_fetal <- as.data.frame(results(dds_run, name = "tissue_adult_vs_fetal")) %>%
+  rownames_to_column(var = "gene_id") %>%
+  left_join(gene_name)
+
+#save table
+write.csv(adult_fetal, "/scratch/Shares/rinn/isabela/CARDEL/fetal_adult/analysis/adult_fetal_deseq_results.csv")
+
+# extract rlog_counts if want to plot heatmaps
+rlog_counts <- dds %>%
+  rlog() %>%
+  assay() %>%
+  as.data.frame() 
+
+#save rlog_counts
+write_rds(rlog_counts,"/scratch/Shares/rinn/isabela/CARDEL/fetal_adult/analysis/adult_fetal_rlog_counts.csv" )
+
+```
+
+```{r}
+# Analysis 2: fetal timecourse vs adult
+dds <- DESeqDataSetFromMatrix(counts, samples,
+                              design = ~ tissue_time)
+dds_run <- DESeq(dds)
+resultsNames(dds_run)
+
+#save analysis
+write_rds(dds_run, "/scratch/Shares/rinn/isabela/CARDEL/fetal_adult/analysis/dds_run2.rds")
+
+# extract rlog_counts if want to plot heatmaps
+rlog_counts_timecourse <- dds %>%
+  rlog() %>%
+  assay() %>%
+  as.data.frame() 
+
+#save rlog_counts
+write_rds(rlog_counts_timecourse,"/scratch/Shares/rinn/isabela/CARDEL/fetal_adult/analysis/timecourse_rlog_counts.csv" )
+
+
+# extract all results
+
+timecourse_adult_16W <- as.data.frame(results(dds_run, name = "tissue_time_adult_vs_fetal_16W")) %>%
+  rownames_to_column(var = "gene_id") %>%
+  left_join(gene_name) %>%
+  mutate(comparison = "tissue_time_adult_vs_fetal_16W")
+
+#save table ##change for each comparison
+write.csv(timecourse_adult_12W, "/scratch/Shares/rinn/isabela/CARDEL/fetal_adult/analysis/timecourse_adult_16W_deseq_results.csv")
+
+# use this to change level:
+dds$tissue_time <- relevel(dds$tissue_time, ref = "fetal_16W")
+dds_run <- DESeq(dds)
+resultsNames(dds_run)
+# go back above to write results
+
+```
+
+```{r}
+
+save(samples, tpm_mean_adult_fetal, gene_name, rlog_counts, adult_fetal, rlog_counts_timecourse, timecourse_12W_9W, timecourse_16W_9W, timecourse_adult_9W, timecourse_16W_12W, timecourse_adult_12W, timecourse_adult_16W,
+     file = "/scratch/Shares/rinn/isabela/CARDEL/fetal_adult/analysis/adult_fetal.RData")
+
+load("/scratch/Shares/rinn/isabela/CARDEL/fetal_adult/analysis/adult_fetal.RData")
+```
 
 # CARDEL : ENSG00000260802
 
-##bring gene_name to the results table
+### Apply filters to find those DEG
+
+```{r - set cutoff}
+padj_cutoff <- 0.05
+logFC <- 2 # FC = 4  #trying to be conservative 
+```
 
 
-# use this to change level: ###### template
-res_F2_F6 <- results(dds_F2, name="grad_fraction_F4_vs_F2")
-#summary(res_F2_F3)
-write.csv(as.data.frame(res_F2_F6), 
-          file="/scratch/Shares/rinn/isabela/rna_protein_complexes/analysis/00_mESC_grad/analysis/02_differential_expression/results/deseq_fractions/grad_fraction_F4_vs_F2.csv")
+```{r}
+# analysis 1:
 
-#F3
-dds$grad_fraction <- relevel(dds$grad_fraction, ref = "F3")
-dds_F3 <- DESeq(dds, test="LRT", reduced=~1)
-resultsNames(dds_F3)
+# all DEGs
+adult_fetal_filtered <- adult_fetal %>%
+  filter(padj <= padj_cutoff) %>%
+  filter(log2FoldChange >= logFC | log2FoldChange <= -logFC)
 
-res_F3 <- results(dds_F3, name="grad_fraction_F11_vs_F3")
-write.csv(as.data.frame(res_F3), 
-          file="/scratch/Shares/rinn/isabela/rna_protein_complexes/analysis/00_mESC_grad/analysis/02_differential_expression/results/deseq_fractions/grad_fraction_F11_vs_F3.csv")
+# the goal is filter those up in fetal tissue
+
+fetal_enriched <- adult_fetal_filtered %>%
+  filter(log2FoldChange <= -logFC)
+
+### CARDEL is here! enriched in fetal vs adult
+
+# those which would be excluded because are up in adult:
+adult_enriched <- adult_fetal_filtered %>%
+  filter(log2FoldChange >= logFC)
+```
+
+```{r}
+# analysis 2:
+
+# following the timecourse, two patters:
+#   A) increase during fetal e decrease in adult (CARDEL increase, but not sig)
+#   B) decrease in fetal and more in adult
+#   C) increase fetal e continue increasing in adult - not our goal, but will be used as filter
+
+#A)
+timecourse_12W_9W_filter <- timecourse_12W_9W %>%
+  filter(padj <= padj) %>%
+  filter(log2FoldChange >= logFC)
+
+timecourse_16W_12W_filter <- timecourse_16W_12W %>%
+  filter(padj <= padj) %>%
+  filter(log2FoldChange >= logFC)
+
+timecourse_adult_16W_filter <- timecourse_adult_16W %>%
+  filter(padj <= padj) %>%
+  filter(log2FoldChange <= -logFC) ### decreases in adult
+  ## this is the only that CARDEL is - meaning that it doesn't increase in this fetal timecourse, but is sig in adults vs 16w
+
+
+#C)
+timecourse_12W_9W_filter <- timecourse_12W_9W %>%
+  filter(padj <= padj) %>%
+  filter(log2FoldChange >= logFC)
+
+timecourse_16W_12W_filter <- timecourse_16W_12W %>%
+  filter(padj <= padj) %>%
+  filter(log2FoldChange >= logFC)
+
+timecourse_adult_16W_filterC <- timecourse_adult_16W %>%
+  filter(padj <= padj) %>%
+  filter(log2FoldChange >= logFC) # keep increasing in adult
+
+increase_all <- intersect(intersect(timecourse_12W_9W_filter$gene_id, timecourse_16W_12W_filter$gene_id), timecourse_adult_16W_filterC$gene_id)
+
+both <- intersect(increase_all, adult_enriched$gene_id)
+#all are represented there, so let's only use the adult vs fetal analysis (1)
+```
+
+```{r - plots}
+rlog_counts_id <- rlog_counts %>%
+  rownames_to_column(var = "gene_id")
+
+# Let's plot a heatmap of all fetal enriched - all replicates
+fetal_enriched_list <- fetal_enriched %>%
+  select(gene_id) %>%
+  left_join(rlog_counts_id) %>%
+  column_to_rownames(var = "gene_id")
+
+
+fetal_enriched_list_scaled <- t(scale(t(fetal_enriched_list))) 
+
+pheatmap::pheatmap(fetal_enriched_list_scaled, show_rownames = F, 
+                   cluster_rows = F, cluster_cols = T,
+                   breaks = seq(-3, 3, length.out = length(my_pal)),
+                   color = rev(my_pal), border_color = NA, fontsize_row = 8)
+
+# How it looks using  (log) mean tpm ====  uma bosta, tentei
+
+# How it looks using rlog_mean === ficou a mesma bosta do mean tpm
+rlog_mean <- rlog_counts_id %>%
+  pivot_longer(!gene_id, names_to = "sample", values_to = "rlog_count") %>%
+  left_join(samples) %>%
+  group_by(gene_id, tissue) %>% ####mean by tissue
+  mutate(rlog_mean = mean(rlog_count)) %>%
+  select(gene_id, tissue, rlog_mean) %>%
+  distinct() %>%
+  pivot_wider(names_from = tissue, values_from = rlog_mean)
+
+
+fetal_enriched_list <- fetal_enriched %>%
+  select(gene_id) %>%
+  left_join(rlog_mean) %>%
+  column_to_rownames(var = "gene_id")
+
+fetal_enriched_list_scaled <- t(scale(t(fetal_enriched_list))) 
+pheatmap::pheatmap(fetal_enriched_list_scaled, show_rownames = F, 
+                   cluster_rows = F, cluster_cols = T,
+                   breaks = seq(-0.5, 0.5, length.out = length(my_pal)),
+                  color = rev(my_pal), border_color = NA, fontsize_row = 8)
 
 ```
+
+## Comparing with hESC diff
+
+```{r}
+# First, let's re-analyze the D4 x D9 data
+# this dataset is already filtered by FDR (padj) < 0.05
+# from old analysis ==== watch for update names etc #TODO: re-run nextflow for these <<<<<<<<<<<<<
+
+d4_d9 <- read.csv("/scratch/Shares/rinn/isabela/CARDEL/fetal_adult/results/DEG_D4_D9_FDR0.05.csv")
+
+up_d9 <- d4_d9 %>%
+  filter(logFC >= 2) #keep same parameter than earlier, but maybe try others
+```
+
+```{r}
+# Now, we can compare those up in D9 and fetal_enriched == these will be our targets
+
+#keep only gene_id_stable
+fetal_enriched$gene_id_stable <- gsub("[.]\\d+", "", fetal_enriched$gene_id)
+up_d9 <- up_d9 %>%
+  dplyr::rename(gene_id_stable = Row.names)
+
+
+targets <- up_d9 %>%
+  filter(gene_id_stable %in% fetal_enriched$gene_id_stable)
+#98
+
+#bring updated names ===== temp
+gene_name$gene_id_stable <- gene_id_stable <- gsub("[.]\\d+", "", gene_name$gene_id)
+
+targets <- targets %>%
+  left_join(gene_name)
+
+write.csv(targets, "/scratch/Shares/rinn/isabela/CARDEL/fetal_adult/analysis/d9_fetal_targets.csv")
+```
+
+# WHY CARDEL?
+# CARDEL : ENSG00000260802
+
+Now is the challenge of finding a nice story to tell about CARDEL
+
+```{r}
+# exclude those that are annotated in BP GOs:
+
+bp_go <- read.csv("/scratch/Shares/rinn/isabela/CARDEL/fetal_adult/analysis/gProfiler_hsapiens_8-6-2022_7-26-48 PM__intersections_BP.csv")
+
+bp_go_genes <- bp_go %>%
+  filter(source == "GO:BP") %>%
+  mutate(genes_name = strsplit(as.character(intersections), ",")) %>%
+  unnest(genes_name) %>%
+  select(genes_name) %>%
+  distinct()
+
+targets_filter_bp <- targets %>%
+  filter(!gene_name %in% bp_go_genes$genes_name)
+#good, list of 37
+
+#rank by logFC d4xd9 AND opposite in fetal_enriched
+fetal_logFC <- fetal_enriched %>%
+  select(gene_id_stable, log2FoldChange)
+
+targets_filter_bp <- targets_filter_bp %>%
+  left_join(fetal_logFC)
+
+top_targets <- targets_filter_bp %>%
+  slice_max(logFC, n = 10)
+
+#let's take a look in the tpm from tissue
+targets_tpm <- tpm_mean_adult_fetal %>%
+  filter(gene_id %in% targets_filter_bp$gene_id)
+
+```
+
+NICE! So far we can justify CARDEL by:
+- among higher logFC d4 x d9
+- among the highest RPKM in D9
+- it is not any weird stuff like pseudogene or not interesting like antisense, sense-over (maybe say independent locus)
+
 

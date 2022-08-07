@@ -26,7 +26,7 @@ Heart: ERR315356; ERR315430; ERR315367; ERR315331
 RNA-Seq (Total RNA) Fetal Heart (SRR643779): Fetal Heart primary tissue, day 91 # not included yet
 RNA-Seq (Total RNA) Fetal Heart (SRR643778): Fetal Heart primary tissue, day 120 # not included yet
 
-https://www.ebi.ac.uk/ena/browser/view/PRJEB27811?show=reads
+>https://www.ebi.ac.uk/ena/browser/view/PRJEB27811?show=reads
 PRJEB27811: RNA-Seq of human fetal hearts at 9, 12 and 16 weeks of gestation (3 replicates each = 9 samples)
 
 
