@@ -388,7 +388,7 @@ NICE! So far we can justify CARDEL by:
 - it is not any weird stuff like pseudogene or not interesting like antisense, sense-over (maybe say independent locus)
 
 ```{r - save space}
-save(adult_fetal, fetal_enriched, adult_enriched, d4_d9, up_d9, targets, targets_filter_bp,
+save(adult_fetal, fetal_enriched, adult_enriched, d4_d9_deseq, up_d9, targets, targets_filter_bp,
      file = "/scratch/Shares/rinn/isabela/CARDEL/fetal_adult/analysis/adult_fetal_d4_d9_results.RData")
 ```
 
@@ -462,3 +462,4 @@ rlog_counts <- dds %>%
 write_rds(rlog_counts,"/scratch/Shares/rinn/isabela/CARDEL/d4_d9/d4_d9_rlog_counts.csv" )
 
 ```
+
