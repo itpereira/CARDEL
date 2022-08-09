@@ -366,6 +366,8 @@ tpmD4_D9 <- read.table("/scratch/Shares/rinn/isabela/CARDEL/d4_d9/results/star_s
 targets_filter_bp <- targets_filter_bp %>%
   left_join(tpmD4_D9)
 
+write.csv(targets_filter_bp, "/scratch/Shares/rinn/isabela/CARDEL/fetal_adult/analysis/targets_filter_bp.csv")
+
 ##NO#rank by logFC d4xd9 AND opposite in fetal_enriched
 fetal_logFC <- fetal_enriched %>%
   select(gene_id_stable, log2FoldChange)
@@ -390,6 +392,7 @@ NICE! So far we can justify CARDEL by:
 ```{r - save space}
 save(adult_fetal, fetal_enriched, adult_enriched, d4_d9_deseq, up_d9, targets, targets_filter_bp,
      file = "/scratch/Shares/rinn/isabela/CARDEL/fetal_adult/analysis/adult_fetal_d4_d9_results.RData")
+load("/scratch/Shares/rinn/isabela/CARDEL/fetal_adult/analysis/adult_fetal_d4_d9_results.RData")
 ```
 
 D4 vs D9 dataset - new nextflow run with updated annotation
