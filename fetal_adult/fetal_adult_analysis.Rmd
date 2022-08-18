@@ -79,6 +79,7 @@ tpm_mean_adult_fetal <- tpm_mean_adult_fetal %>%
   mutate(sd_time = sd(tpm, na.rm=TRUE))
 
 write_rds(tpm_mean_adult_fetal, "/scratch/Shares/rinn/isabela/CARDEL/fetal_adult/analysis/tpm_mean.rds")
+write_csv(tpm_mean_adult_fetal, "/scratch/Shares/rinn/isabela/CARDEL/fetal_adult/analysis/tpm_mean_tissue.csv")
 ```
 
 ```{r - prep for deseq}
@@ -368,20 +369,34 @@ targets_filter_bp <- targets_filter_bp %>%
 
 write.csv(targets_filter_bp, "/scratch/Shares/rinn/isabela/CARDEL/fetal_adult/analysis/targets_filter_bp.csv")
 
-##NO#rank by logFC d4xd9 AND opposite in fetal_enriched
-fetal_logFC <- fetal_enriched %>%
-  select(gene_id_stable, log2FoldChange)
 
-targets_filter_bp <- targets_filter_bp %>%
-  left_join(fetal_logFC)
+#let's merge results from tissue
+adult_fetal_deseq <- adult_fetal %>%
+  select(gene_id, log2FoldChange, pvalue, padj)
+colnames(adult_fetal_deseq) <- c("gene_id", "log2FC_tissue", "pval_tissue", "padj_tissue")
 
-top_targets <- targets_filter_bp %>%
-  slice_max(logFC, n = 10)
+tpm_tissue <- tpm_mean_adult_fetal %>%
+  ungroup() %>%
+  select(gene_id, tissue, mean_tpm_tissue) %>%
+  distinct() %>%
+  pivot_wider(names_from = tissue, values_from = mean_tpm_tissue) %>%
+  dplyr::rename(adult_mean_tpm = adult, fetal_mean_tpm = fetal)
 
-#let's take a look in the tpm from tissue
-targets_tpm <- tpm_mean_adult_fetal %>%
-  filter(gene_id %in% targets_filter_bp$gene_id)
+#merge gene_type
+gencode <- read_rds("/scratch/Shares/rinn/isabela/rna_protein_complexes/analysis/00_hiPSC_grad/analysis/00_setup/results/gencode.rds")
 
+gencode <- gencode %>%
+  select(gene_id, gene_type) %>%
+  distinct()
+
+
+##merge all
+targets_tpm <- targets_filter_bp %>%
+  left_join(adult_fetal_deseq) %>%
+  left_join(tpm_tissue) %>%
+  left_join(gencode)
+
+write_csv(targets_tpm, "/scratch/Shares/rinn/isabela/CARDEL/fetal_adult/analysis/targets_all_tpm.csv")
 ```
 
 NICE! So far we can justify CARDEL by:
@@ -464,5 +479,18 @@ rlog_counts <- dds %>%
 #save rlog_counts
 write_rds(rlog_counts,"/scratch/Shares/rinn/isabela/CARDEL/d4_d9/d4_d9_rlog_counts.csv" )
 
+
+
+#tpm
+tpmD4_D9 <- read.table("/scratch/Shares/rinn/isabela/CARDEL/d4_d9/results/star_salmon/salmon.merged.gene_tpm.tsv", header = T)
+
+tpm_diff <- tpmD4_D9 %>%
+  pivot_longer(cols = D4_R1:D9_R3, names_to = "sample", values_to = "tpm") %>%
+  left_join(sample) %>%
+  group_by(gene_id, day) %>% ####mean by tissue
+  mutate(mean_tpm_diff = mean(tpm)) %>%
+  mutate(sd_diff = sd(tpm, na.rm=TRUE))
+
+write_csv(tpm_diff, "/scratch/Shares/rinn/isabela/CARDEL/fetal_adult/analysis/tpm_mean_diff.csv")
 ```
 
