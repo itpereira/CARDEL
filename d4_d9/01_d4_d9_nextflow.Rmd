@@ -11,6 +11,9 @@ library(dplyr)
 library(tidyverse)
 ```
 
+D4 & D9 from in vitro differentiation (Pereira et al., 2018). HES3-GFP, polysome data.
+
+
 1) Creating design file:
 sample,fastq_1,fastq_2,strandedness
 
