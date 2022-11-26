@@ -39,16 +39,16 @@ For color palette https://www.datanovia.com/en/blog/the-a-z-of-rcolorbrewer-pale
 
 ```{r - read in files}
 #D10 vs D10 dox
-deg10 <- read.csv("/scratch/Shares/rinn/isabela/CARDELL/rnaseq/resultadosDEtotalnorm_10P10Pdox_excel.csv")
+deg10 <- read.csv("/scratch/Shares/rinn/isabela/CARDEL/rna_seq/resultadosDEtotalnorm_10P10Pdox_excel.csv")
 
 #D15 vs D15dox
-deg15 <- read.csv("/scratch/Shares/rinn/isabela/CARDELL/rnaseq/resultadosDEtotalnorm_15P15Pdox_excel.csv")
+deg15 <- read.csv("/scratch/Shares/rinn/isabela/CARDEL/rna_seq/resultadosDEtotalnorm_15P15Pdox_excel.csv")
 
 #D10 vs D15
-deg_dif <- read.csv("/scratch/Shares/rinn/isabela/CARDELL/rnaseq/resultadosDEtotalnorm_10P15P_excel.csv")
+deg_dif <- read.csv("/scratch/Shares/rinn/isabela/CARDEL/rna_seq/resultadosDEtotalnorm_10P15P_excel.csv")
 
 #D10dox vs D15dox
-deg_dox <- read.csv("/scratch/Shares/rinn/isabela/CARDELL/rnaseq/resultadosDEtotalnorm_10Pdox15Pdox_excel.csv")
+deg_dox <- read.csv("/scratch/Shares/rinn/isabela/CARDEL/rna_seq/resultadosDEtotalnorm_10Pdox15Pdox_excel.csv")
 ```
 
 ```{r - apply filter for DEGs}
@@ -56,57 +56,57 @@ deg_dox <- read.csv("/scratch/Shares/rinn/isabela/CARDELL/rnaseq/resultadosDEtot
 
 deg10_up <- deg10 %>%
   filter(padj <= 0.05 & log2FoldChange <= -1.5)
-#write_csv(deg10_up, "/scratch/Shares/rinn/isabela/CARDELL/rnaseq/deg10_up.csv")
+write_csv(deg10_up, "/scratch/Shares/rinn/isabela/CARDEL/rna_seq/deg10_up.csv")
 
-deg10_up <- read.csv("/scratch/Shares/rinn/isabela/CARDELL/rnaseq/deg10_up.csv")
+#deg10_up <- read.csv("/scratch/Shares/rinn/isabela/CARDEL/rna_seq/deg10_up.csv")
 
 deg10_down <- deg10 %>%
   filter(padj <= 0.05 & log2FoldChange >= 1.5)
-write_csv(deg10_down, "/scratch/Shares/rinn/isabela/CARDELL/rnaseq/deg10_down.csv")
+write_csv(deg10_down, "/scratch/Shares/rinn/isabela/CARDEL/rna_seq/deg10_down.csv")
 
-deg10_down <- read.csv("/scratch/Shares/rinn/isabela/CARDELL/rnaseq/deg10_down.csv")
+#deg10_down <- read.csv("/scratch/Shares/rinn/isabela/CARDEL/rna_seq/deg10_down.csv")
 
 ##
 
 deg15_up <- deg15 %>%
   filter(padj <= 0.05 & log2FoldChange <= -1.5)
-write_csv(deg15_up, "/scratch/Shares/rinn/isabela/CARDELL/rnaseq/deg15_up.csv")
+write_csv(deg15_up, "/scratch/Shares/rinn/isabela/CARDEL/rna_seq/deg15_up.csv")
 
-deg15_up <- read.csv("/scratch/Shares/rinn/isabela/CARDELL/rnaseq/deg15_up.csv")
+#deg15_up <- read.csv("/scratch/Shares/rinn/isabela/CARDEL/rna_seq/deg15_up.csv")
 
 deg15_down <- deg15 %>%
   filter(padj <= 0.05 & log2FoldChange >= 1.5)
-write_csv(deg15_down, "/scratch/Shares/rinn/isabela/CARDELL/rnaseq/deg15_down.csv")
+write_csv(deg15_down, "/scratch/Shares/rinn/isabela/CARDEL/rna_seq/deg15_down.csv")
 
-deg15_down <- read.csv("/scratch/Shares/rinn/isabela/CARDELL/rnaseq/deg15_down.csv")
+#deg15_down <- read.csv("/scratch/Shares/rinn/isabela/CARDEL/rna_seq/deg15_down.csv")
 
 ##
 
 deg_dif_up <- deg_dif %>%
   filter(padj <= 0.05 & log2FoldChange <= -1.5)
-write_csv(deg_dif_up, "/scratch/Shares/rinn/isabela/CARDELL/rnaseq/deg_dif_up.csv")
+write_csv(deg_dif_up, "/scratch/Shares/rinn/isabela/CARDEL/rna_seq/deg_dif_up.csv")
 
-deg_dif_up <- read.csv("/scratch/Shares/rinn/isabela/CARDELL/rnaseq/deg_dif_up.csv")
+#deg_dif_up <- read.csv("/scratch/Shares/rinn/isabela/CARDEL/rna_seq/deg_dif_up.csv")
 
 deg_dif_down <- deg_dif %>%
   filter(padj <= 0.05 & log2FoldChange >= 1.5)
-write_csv(deg_dif_down, "/scratch/Shares/rinn/isabela/CARDELL/rnaseq/deg_dif_down.csv")
+write_csv(deg_dif_down, "/scratch/Shares/rinn/isabela/CARDEL/rna_seq/deg_dif_down.csv")
 
-deg_dif_down <- read.csv("/scratch/Shares/rinn/isabela/CARDELL/rnaseq/deg_dif_down.csv")
+#deg_dif_down <- read.csv("/scratch/Shares/rinn/isabela/CARDEL/rna_seq/deg_dif_down.csv")
 
 ##
 
 deg_dox_up <- deg_dox %>%
   filter(padj <= 0.05 & log2FoldChange <= -1.5)
-write_csv(deg_dox_up, "/scratch/Shares/rinn/isabela/CARDELL/rnaseq/deg_dox_up.csv")
+write_csv(deg_dox_up, "/scratch/Shares/rinn/isabela/CARDEL/rna_seq/deg_dox_up.csv")
 
-deg_dox_up <- read.csv("/scratch/Shares/rinn/isabela/CARDELL/rnaseq/deg_dox_up.csv")
+#deg_dox_up <- read.csv("/scratch/Shares/rinn/isabela/CARDEL/rna_seq/deg_dox_up.csv")
 
 deg_dox_down <- deg_dox %>%
   filter(padj <= 0.05 & log2FoldChange >= 1.5)
-write_csv(deg_dox_down, "/scratch/Shares/rinn/isabela/CARDELL/rnaseq/deg_dox_down.csv")
+write_csv(deg_dox_down, "/scratch/Shares/rinn/isabela/CARDEL/rna_seq/deg_dox_down.csv")
 
-deg_dox_down <- read.csv("/scratch/Shares/rinn/isabela/CARDELL/rnaseq/deg_dox_down.csv")
+#deg_dox_down <- read.csv("/scratch/Shares/rinn/isabela/CARDEL/rna_seq/deg_dox_down.csv")
 
 ```
 
@@ -226,7 +226,7 @@ pheatmap::pheatmap(norm_counts_scaled, show_rownames = FALSE,
 
 ```{r - list of genes to plot heatmap from GO - cardio}
 #filtered manually BP terms related to cardio
-bp15up_filter <- read_csv("/scratch/Shares/rinn/isabela/CARDELL/rnaseq/gProfiler_hsapiens_7-2-2022_2-16-48 PM__intersections_d15_up_cardiofilter.csv")
+bp15up_filter <- read_csv("/scratch/Shares/rinn/isabela/CARDEL/rna_seq/gProfiler_hsapiens_7-2-2022_2-16-48 PM__intersections_d15_up_cardiofilter.csv")
 
 bp15up_filter <- bp15up_filter %>%
   mutate(genes = strsplit(as.character(intersections), ",")) %>%
@@ -484,10 +484,10 @@ write_csv(cardio_manual, "/scratch/Shares/rinn/isabela/CARDELL/rnaseq/go_cardio_
 ```{r - final(?) GO filters for heatmap}
 
 #filtered manually BP terms related to cardio
-bp15up_filter <- read_csv("/scratch/Shares/rinn/isabela/CARDELL/rnaseq/gProfiler_hsapiens_7-2-2022_2-16-48 PM__intersections_d15_up_cardiofilter.csv")
+bp15up_filter <- read_csv("/scratch/Shares/rinn/isabela/CARDEL/rna_seq/gProfiler_hsapiens_7-2-2022_2-16-48 PM__intersections_d15_up_cardiofilter.csv")
 
 #filtered manually molecular functions: structural or ion related
-mol15up_filter <- read_csv("/scratch/Shares/rinn/isabela/CARDELL/rnaseq/gProfiler_hsapiens_7-2-2022_2-16-48 PM__intersections_d15_up_mol_function.csv")
+mol15up_filter <- read_csv("/scratch/Shares/rinn/isabela/CARDEL/rna_seq/gProfiler_hsapiens_7-2-2022_2-16-48 PM__intersections_d15_up_mol_function.csv")
 
 
 cm_dif <- bp15up_filter %>%
@@ -513,9 +513,11 @@ write_csv(go_genes_final, "/scratch/Shares/rinn/isabela/CARDELL/rnaseq/go_genes_
 
 #after manual selection
 
-go_genes_heatmap <- read_csv("/scratch/Shares/rinn/isabela/CARDELL/rnaseq/go_genes_final_manual_curated.csv")
+go_genes_heatmap <- read_csv("/scratch/Shares/rinn/isabela/CARDEL/rna_seq/go_genes_final_manual_curated.csv")
 ```
 
+
+### PLOTS FOR PAPER #### FINAL
 ```{r - genes heatmap}
 heatmap_cm <- go_genes_heatmap %>%
   filter(category == "cardiocyte differentiation") %>%
@@ -529,7 +531,10 @@ heatmap_heart <- go_genes_heatmap %>%
   filter(category == "heart contraction") %>%
   select(external_gene_name)
 
+```
 
+Norm counts from Aruana - first round - not sure
+---
 #grab COUNTS (???see what we plot here for real ############)
 deg15_counts <- deg15 %>%
   select(external_gene_name, starts_with("X")) %>% select(-X)
@@ -572,8 +577,13 @@ heatmap_heart_counts <- heatmap_heart %>%
   distinct() %>%
   pivot_wider(names_from = "day", values_from = "mean_count") %>%
   column_to_rownames(var = "external_gene_name")
+---
 
+```{r - using RPKM}
+rpkm <- read.csv("/scratch/Shares/rinn/isabela/CARDEL/rna_seq/RPKM.Cardel.csv")
+```
 
+```{r}
 ## PLOT
 
 #transform log
