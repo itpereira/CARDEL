@@ -1,0 +1,685 @@
+---
+title: "rnaseq_analysis"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(ggplot2)
+library(DESeq2)
+library(VennDiagram)
+library(ggdendro)
+library(GenomicRanges)
+library(RColorBrewer)
+library(ggrepel)
+library(dendsort)
+
+my_pal <- brewer.pal(n = 10, name = 'RdBu')
+```
+
+
+```{r - color palette}
+display.brewer.pal(n = 11, name = 'RdBu') #11 max colors in the palette
+
+brewer.pal(n = 11, name = 'RdBu') #gives the color codes
+#[1] (red) "#67001F" "#B2182B" "#D6604D" "#F4A582" "#FDDBC7" "#F7F7F7" "#D1E5F0" "#92C5DE" "#4393C3" #"#2166AC"
+#[11] "#053061" (blue)
+
+brewer.pal(n = 10, name = 'RdBu')
+#[1] "#67001F" "#B2182B" "#D6604D" "#F4A582" "#FDDBC7" "#D1E5F0" "#92C5DE" "#4393C3" "#2166AC" #"#053061"
+
+#use this in ggplot
++ scale_color_brewer(palette = "RdBu") +
+```
+
+For color palette https://www.datanovia.com/en/blog/the-a-z-of-rcolorbrewer-palette/
+
+```{r - read in files}
+#D10 vs D10 dox
+deg10 <- read.csv("/scratch/Shares/rinn/isabela/CARDELL/rnaseq/resultadosDEtotalnorm_10P10Pdox_excel.csv")
+
+#D15 vs D15dox
+deg15 <- read.csv("/scratch/Shares/rinn/isabela/CARDELL/rnaseq/resultadosDEtotalnorm_15P15Pdox_excel.csv")
+
+#D10 vs D15
+deg_dif <- read.csv("/scratch/Shares/rinn/isabela/CARDELL/rnaseq/resultadosDEtotalnorm_10P15P_excel.csv")
+
+#D10dox vs D15dox
+deg_dox <- read.csv("/scratch/Shares/rinn/isabela/CARDELL/rnaseq/resultadosDEtotalnorm_10Pdox15Pdox_excel.csv")
+```
+
+```{r - apply filter for DEGs}
+### Filter by FDR 0.05 and logFC 1.5
+
+deg10_up <- deg10 %>%
+  filter(padj <= 0.05 & log2FoldChange <= -1.5)
+#write_csv(deg10_up, "/scratch/Shares/rinn/isabela/CARDELL/rnaseq/deg10_up.csv")
+
+deg10_up <- read.csv("/scratch/Shares/rinn/isabela/CARDELL/rnaseq/deg10_up.csv")
+
+deg10_down <- deg10 %>%
+  filter(padj <= 0.05 & log2FoldChange >= 1.5)
+write_csv(deg10_down, "/scratch/Shares/rinn/isabela/CARDELL/rnaseq/deg10_down.csv")
+
+deg10_down <- read.csv("/scratch/Shares/rinn/isabela/CARDELL/rnaseq/deg10_down.csv")
+
+##
+
+deg15_up <- deg15 %>%
+  filter(padj <= 0.05 & log2FoldChange <= -1.5)
+write_csv(deg15_up, "/scratch/Shares/rinn/isabela/CARDELL/rnaseq/deg15_up.csv")
+
+deg15_up <- read.csv("/scratch/Shares/rinn/isabela/CARDELL/rnaseq/deg15_up.csv")
+
+deg15_down <- deg15 %>%
+  filter(padj <= 0.05 & log2FoldChange >= 1.5)
+write_csv(deg15_down, "/scratch/Shares/rinn/isabela/CARDELL/rnaseq/deg15_down.csv")
+
+deg15_down <- read.csv("/scratch/Shares/rinn/isabela/CARDELL/rnaseq/deg15_down.csv")
+
+##
+
+deg_dif_up <- deg_dif %>%
+  filter(padj <= 0.05 & log2FoldChange <= -1.5)
+write_csv(deg_dif_up, "/scratch/Shares/rinn/isabela/CARDELL/rnaseq/deg_dif_up.csv")
+
+deg_dif_up <- read.csv("/scratch/Shares/rinn/isabela/CARDELL/rnaseq/deg_dif_up.csv")
+
+deg_dif_down <- deg_dif %>%
+  filter(padj <= 0.05 & log2FoldChange >= 1.5)
+write_csv(deg_dif_down, "/scratch/Shares/rinn/isabela/CARDELL/rnaseq/deg_dif_down.csv")
+
+deg_dif_down <- read.csv("/scratch/Shares/rinn/isabela/CARDELL/rnaseq/deg_dif_down.csv")
+
+##
+
+deg_dox_up <- deg_dox %>%
+  filter(padj <= 0.05 & log2FoldChange <= -1.5)
+write_csv(deg_dox_up, "/scratch/Shares/rinn/isabela/CARDELL/rnaseq/deg_dox_up.csv")
+
+deg_dox_up <- read.csv("/scratch/Shares/rinn/isabela/CARDELL/rnaseq/deg_dox_up.csv")
+
+deg_dox_down <- deg_dox %>%
+  filter(padj <= 0.05 & log2FoldChange >= 1.5)
+write_csv(deg_dox_down, "/scratch/Shares/rinn/isabela/CARDELL/rnaseq/deg_dox_down.csv")
+
+deg_dox_down <- read.csv("/scratch/Shares/rinn/isabela/CARDELL/rnaseq/deg_dox_down.csv")
+
+```
+
+```{r - CARDEL expression}
+#filter CARDEL ENSG00000260802
+cardel <- deg10 %>%
+  filter(Row.names == "ENSG00000260802") %>%
+  select(Row.names, starts_with("X")) %>% select(-X) %>%
+  pivot_longer(!Row.names, names_to = "condition", values_to = "value")
+
+cardel$replicate <- cardel$condition
+cardel$replicate <- gsub("X", "", cardel$replicate)
+cardel$replicate <- gsub("D(.*)", "", cardel$replicate)
+cardel$condition <- gsub("X[1-3]", "", cardel$condition)
+
+##TODO:here. - calculate sd to plot error bar etc
+ggplot(cardel, aes(x = condition, y = value))
+
+```
+
+```{r - how much CARDEL affect overall dif}
+#Compare if what changes between D10 and D15 in regular diff is the same as with dox
+#UP: 914 & 1086
+cardel_effect_overall <- intersect(deg_dif_up$Row.names, deg_dox_up$Row.names)
+#537
+
+#find what don't intersect
+deg_dox_up$only_dox <- ifelse(deg_dox_up$Row.names %in% deg_dif_up$Row.names, "TRUE", "dox")
+only_dox <- deg_dox_up %>%
+  filter(only_dox == "dox") #549
+write_csv(only_dox, "/scratch/Shares/rinn/isabela/CARDELL/rnaseq/only_dox.csv")
+
+common_dif <- deg_dox_up %>%
+  filter(only_dox == "TRUE") #537
+write_csv(common_dif, "/scratch/Shares/rinn/isabela/CARDELL/rnaseq/common_dif.csv")
+
+#Let's see how much the only_dox intersect with D15 x D15dox
+#549 & 393
+intersect2 <- intersect(only_dox$Row.names, deg15_up$Row.names)
+#147
+
+only_dox$D15 <- ifelse(only_dox$Row.names %in% deg15_up$Row.names, "common", "not")
+only_dox_D15 <- only_dox %>%
+  filter(D15 == "not") 
+#402 genes that CARDEL also helps up-express between D10 and D15 that didn't show up in the D15 comparison
+write_csv(only_dox_D15, "/scratch/Shares/rinn/isabela/CARDELL/rnaseq/only_dox_D15_not.csv")
+
+#DOWN: 364 & 351
+cardel_effect_overall_d <- intersect(deg_dif_down$Row.names, deg_dox_down$Row.names)
+#122
+
+##TODO: most of genes not similar - what are they and how they express??
+
+#plot a Venn from this
+cardel_effect_overall <- as.data.frame(intersect(deg_dif_up$Row.names, deg_dox_up$Row.names))
+colnames(cardel_effect_overall) <- c("Row.names")
+
+pdf("/scratch/Shares/rinn/isabela/CARDELL/rnaseq/plots/ven_genes_dif_vs_difdox.pdf")
+
+venn_plot <- draw.pairwise.venn(length(deg_dif_up$Row.names),
+                                length(deg_dox_up$Row.names),
+                                length(cardel_effect_overall$Row.names),
+                                category = c("Reg_dif_up","Dox_dif_up"),
+                                scaled=TRUE,
+                                fill = c("dark gray", "red"),
+                                alpha = rep(0.5,2),
+                                cat.pos = c(-30,30),
+                                lty = "blank",
+                                cex = 2,
+                                ext.text = TRUE,
+                                cat.dist = c(0.03, 0.03),
+                                cat.cex = 2)
+dev.off()
+```
+
+```{r - D10dox is more similar to D15?}
+#What CARDEL helps to express earlier in D10?
+#Compare D10xD15 to D10xD10dox
+#UP: 914 & 195
+intersection <- intersect(deg_dif_up$Row.names, deg10_up$Row.names)
+#34
+intersection <- as.data.frame(intersection)
+colnames(intersection) <- c("Row.names")
+intersection <- intersection %>% left_join(deg_dif_up)
+genes <- intersection %>% select(external_gene_name)
+write.csv(genes,"/scratch/Shares/rinn/isabela/CARDELL/rnaseq/genes.csv")
+
+#GO gprofiler: metal ion transport for the 34 genes
+```
+
+
+```{r - clustering}
+#make a file with norm_counts (#TODO: ask WHAT ARE THESE NUMBERS!!!!!!)
+norm_counts <- deg10 %>%
+  select(Row.names, starts_with("X")) %>%
+  select(!X)
+
+norm_counts <- distinct(norm_counts)
+
+norm_counts <- norm_counts %>%
+  column_to_rownames(var = "Row.names")
+
+#save
+write_rds(norm_counts, "/scratch/Shares/rinn/isabela/CARDELL/rnaseq/norm_counts.rds")
+
+#scale to plot
+norm_counts_scaled <- t(scale(t(norm_counts))) 
+
+pheatmap::pheatmap(norm_counts_scaled, show_rownames = FALSE, 
+                   cluster_rows = F, cluster_cols = T,
+                   breaks = seq(-3, 3, length.out = length(col_pal10)),
+                   color = col_pal10, border_color = NA, fontsize_row = 8)
+```
+#TODO: cluster with a cardiac specific list of genes (maybe d10dox up??)
+
+
+
+```{r - list of genes to plot heatmap from GO - cardio}
+#filtered manually BP terms related to cardio
+bp15up_filter <- read_csv("/scratch/Shares/rinn/isabela/CARDELL/rnaseq/gProfiler_hsapiens_7-2-2022_2-16-48 PM__intersections_d15_up_cardiofilter.csv")
+
+bp15up_filter <- bp15up_filter %>%
+  mutate(genes = strsplit(as.character(intersections), ",")) %>%
+  unnest(genes)
+
+bp15up_genes <- bp15up_filter %>%
+  select(genes)
+bp15up_genes <-  unique(bp15up_genes$genes)
+bp15up_genes <-  as.data.frame(bp15up_genes)
+
+#merge COUNTS ????
+colnames(bp15up_genes) <- c("external_gene_name")
+
+write.csv(bp15up_genes, "/scratch/Shares/rinn/isabela/CARDELL/rnaseq/GO_genes_cardio_filter.csv")
+
+deg15_counts <- deg15 %>%
+  select(external_gene_name, starts_with("X")) %>% select(-X)
+bp15up_genes_counts <- bp15up_genes %>%
+  left_join(deg15_counts)
+
+#calculate mean
+bp15up_genes_counts <- bp15up_genes_counts %>%
+  pivot_longer(!external_gene_name, names_to = "sample", values_to = "counts") 
+bp15up_genes_counts$replicate <- gsub("D1[0-9](.*)", "", bp15up_genes_counts$sample )
+bp15up_genes_counts$day <- gsub("X[1-3]", "", bp15up_genes_counts$sample )
+
+bp15up_genes_counts <- bp15up_genes_counts %>%
+  group_by(external_gene_name, day) %>%
+  mutate(mean_count = mean(counts)) %>%
+  select(external_gene_name, day, mean_count) %>%
+  distinct() %>%
+  pivot_wider(names_from = "day", values_from = "mean_count") 
+
+#get rid of counts = 0
+bp15up_genes_counts <- bp15up_genes_counts %>%
+  filter(!external_gene_name == "KLHL40") %>% #checked manually
+  column_to_rownames(var = "external_gene_name")
+
+#transform log
+bp15up_genes_counts_log <- log2(bp15up_genes_counts)
+
+#plot heatmap
+bp15up_genes_counts_log_scaled <- t(scale(t(bp15up_genes_counts_log))) 
+
+pheatmap::pheatmap(bp15up_genes_counts_log_scaled, show_rownames = TRUE, 
+                   cluster_rows = T, cluster_cols = T,
+                   breaks = seq(-1.5, 1.5, length.out = length(my_pal)),
+                   color = rev(my_pal), border_color = NA, fontsize_row = 8)
+####WORKING HERE - format looking good. decide what to include - genes and values
+#TODO: I could select among them the higher logFC....
+```
+
+```{r - list of genes to plot heatmap from GO - cardio - subfilter}
+#filtered manually BP terms related to cardio
+bp15up_filter <- read_csv("/scratch/Shares/rinn/isabela/CARDELL/rnaseq/gProfiler_hsapiens_7-2-2022_2-16-48 PM__intersections_d15_up_cardiofilter.csv")
+
+#apply subfilter in the cardio category == main terms related to iCARDEL phenotype
+bp15up_filter2 <- bp15up_filter %>%
+  filter(term_name == "heart contraction" | term_name == "sarcomere organization"| term_name == "cardiocyte differentiation" | term_name == "regulation of heart contraction")
+
+bp15up_filter2 <- bp15up_filter2 %>%
+  mutate(genes = strsplit(as.character(intersections), ",")) %>%
+  unnest(genes)
+
+bp15up_genes2 <- bp15up_filter2 %>%
+  select(genes)
+bp15up_genes2 <-  unique(bp15up_genes2$genes)
+bp15up_genes2 <-  as.data.frame(bp15up_genes2)
+
+#merge COUNTS ????
+colnames(bp15up_genes2) <- c("external_gene_name")
+#save the list of genes
+write.csv(bp15up_genes2, "/scratch/Shares/rinn/isabela/CARDELL/rnaseq/GO_genes_cardio_filter2.csv")
+
+
+deg15_counts <- deg15 %>%
+  select(external_gene_name, starts_with("X")) %>% select(-X)
+bp15up_genes_counts2 <- bp15up_genes2 %>%
+  left_join(deg15_counts)
+
+#calculate mean
+bp15up_genes_counts2 <- bp15up_genes_counts2 %>%
+  pivot_longer(!external_gene_name, names_to = "sample", values_to = "counts") 
+bp15up_genes_counts2$replicate <- gsub("D1[0-9](.*)", "", bp15up_genes_counts2$sample )
+bp15up_genes_counts2$day <- gsub("X[1-3]", "", bp15up_genes_counts2$sample )
+
+bp15up_genes_counts2 <- bp15up_genes_counts2 %>%
+  group_by(external_gene_name, day) %>%
+  mutate(mean_count = mean(counts)) %>%
+  select(external_gene_name, day, mean_count) %>%
+  distinct() %>%
+  pivot_wider(names_from = "day", values_from = "mean_count") 
+
+#transform log
+bp15up_genes_counts_log <- bp15up_genes_counts2 %>% column_to_rownames(var = "external_gene_name")
+bp15up_genes_counts_log <- log2(bp15up_genes_counts_log)
+
+#plot heatmap
+bp15up_genes_counts_log_scaled <- t(scale(t(bp15up_genes_counts_log))) 
+
+pheatmap::pheatmap(bp15up_genes_counts_log_scaled, show_rownames = TRUE, 
+                   cluster_rows = T, cluster_cols = T,
+                   breaks = seq(-1.5, 1.5, length.out = length(my_pal)),
+                   color = rev(my_pal), border_color = NA, fontsize_row = 8)
+
+```
+
+```{r - list of genes to plot heatmap from GO - molecular function}
+#filtered manually molecular functions: structural or ion related
+mol15up_filter <- read_csv("/scratch/Shares/rinn/isabela/CARDELL/rnaseq/gProfiler_hsapiens_7-2-2022_2-16-48 PM__intersections_d15_up_mol_function.csv")
+
+mol15up_filter <- mol15up_filter %>%
+  mutate(genes = strsplit(as.character(intersections), ",")) %>%
+  unnest(genes)
+
+#split structural / ion
+est15up <- mol15up_filter %>%
+  filter(term_name == "cytoskeletal protein binding" |term_name == "structural constituent of muscle"|term_name == "actin binding" |term_name == "actin filament binding")
+
+ion15up <- mol15up_filter %>%
+  filter(term_name == "inorganic cation transmembrane transporter activity" |term_name == "calcium ion binding"|term_name == "cation transmembrane transporter activity" |term_name == "metal ion transmembrane transporter activity")
+
+#finding unique genes
+est15up_genes <- est15up %>%
+  select(genes)
+est15up_genes <-  unique(est15up_genes$genes)
+est15up_genes <-  as.data.frame(est15up_genes)
+
+ion15up_genes <- ion15up %>%
+  select(genes)
+ion15up_genes <-  unique(ion15up_genes$genes)
+ion15up_genes <-  as.data.frame(ion15up_genes)
+
+#merge COUNTS ????
+colnames(est15up_genes) <- c("external_gene_name")
+deg15_counts <- deg15 %>%
+  select(external_gene_name, starts_with("X")) %>% select(-X)
+est15up_genes_counts <- est15up_genes %>%
+  left_join(deg15_counts)
+
+#calculate mean
+est15up_genes_counts <- est15up_genes_counts %>%
+  pivot_longer(!external_gene_name, names_to = "sample", values_to = "counts") 
+est15up_genes_counts$replicate <- gsub("D1[0-9](.*)", "", est15up_genes_counts$sample )
+est15up_genes_counts$day <- gsub("X[1-3]", "", est15up_genes_counts$sample )
+
+est15up_genes_counts <- est15up_genes_counts %>%
+  group_by(external_gene_name, day) %>%
+  mutate(mean_count = mean(counts)) %>%
+  select(external_gene_name, day, mean_count) %>%
+  distinct() %>%
+  pivot_wider(names_from = "day", values_from = "mean_count") %>%
+  column_to_rownames(var = "external_gene_name")
+
+#transform log
+est15up_genes_counts_log <- log2(est15up_genes_counts)
+
+#plot heatmap
+est15up_genes_counts_log_scaled <- t(scale(t(est15up_genes_counts_log))) 
+
+pheatmap::pheatmap(est15up_genes_counts_log_scaled, show_rownames = TRUE, 
+                   cluster_rows = T, cluster_cols = T,
+                   breaks = seq(-1.5, 1.5, length.out = length(my_pal)),
+                   color = rev(my_pal), border_color = NA, fontsize_row = 8)
+
+#ion
+#merge COUNTS ????
+colnames(ion15up_genes) <- c("external_gene_name")
+deg15_counts <- deg15 %>%
+  select(external_gene_name, starts_with("X")) %>% select(-X)
+ion15up_genes_counts <- ion15up_genes %>%
+  left_join(deg15_counts)
+
+#calculate mean
+ion15up_genes_counts <- ion15up_genes_counts %>%
+  pivot_longer(!external_gene_name, names_to = "sample", values_to = "counts") 
+ion15up_genes_counts$replicate <- gsub("D1[0-9](.*)", "", ion15up_genes_counts$sample )
+ion15up_genes_counts$day <- gsub("X[1-3]", "", ion15up_genes_counts$sample )
+
+ion15up_genes_counts <- ion15up_genes_counts %>%
+  group_by(external_gene_name, day) %>%
+  mutate(mean_count = mean(counts)) %>%
+  select(external_gene_name, day, mean_count) %>%
+  distinct() %>%
+  pivot_wider(names_from = "day", values_from = "mean_count") %>%
+  column_to_rownames(var = "external_gene_name")
+
+#transform log
+ion15up_genes_counts_log <- log2(ion15up_genes_counts)
+
+#plot heatmap
+ion15up_genes_counts_log_scaled <- t(scale(t(ion15up_genes_counts_log))) 
+
+pheatmap::pheatmap(ion15up_genes_counts_log_scaled, show_rownames = TRUE, 
+                   cluster_rows = T, cluster_cols = T,
+                   breaks = seq(-1.5, 1.5, length.out = length(my_pal)),
+                   color = rev(my_pal), border_color = NA, fontsize_row = 8)
+
+##not ready yet - review and maybe make gene list smaller for heatmap
+##TODO: check overlap between the two gene lists
+```
+
+```{r - compare genes GOs to filter}
+#cardio filter 2 (50) and estructural (42)
+cardio_est <- intersect(bp15up_genes2$external_gene_name, est15up_genes$external_gene_name)
+#24
+cardio_est <-  as.data.frame(cardio_est)
+colnames(cardio_est) <- "external_gene_name"
+cardio_est <- cardio_est %>%
+  mutate(intersection = "cardio_estruc")
+
+#cardio filter 2 (50) and ion (52)
+cardio_ion <- intersect(bp15up_genes2$external_gene_name, ion15up_genes$external_gene_name)
+#13
+cardio_ion <-  as.data.frame(cardio_ion)
+colnames(cardio_ion) <- "external_gene_name"
+cardio_ion <- cardio_ion %>%
+  mutate(intersection = "cardio_ion")
+
+#estructural & ion
+est_ion <- intersect(est15up_genes$external_gene_name, ion15up_genes$external_gene_name)
+#9
+est_ion <-  as.data.frame(est_ion)
+colnames(est_ion) <- "external_gene_name"
+est_ion <- est_ion %>%
+  mutate(intersection = "estruc_ion")
+
+intersections <- rbind(cardio_est, cardio_ion, est_ion)
+
+#bring gene description to help the categories
+gene_description <- deg15 %>%
+  select(external_gene_name, description)
+
+intersections <- intersections %>%
+  left_join(gene_description)
+
+#save
+write_csv(intersections, "/scratch/Shares/rinn/isabela/CARDELL/rnaseq/go_intersections_categories.csv")
+
+##TODO: ver essas listas // rodar no gprofiler pra ver as mol function dos q nao intersect pra ver se consigo categorizar no heatmap
+# Tbm ver quais desses aparecem em D10xD15, daria pra categorizar isso em sim e nao, como over upregulated ou new regulated sei la
+
+# Find those not intersect with est & ion to manually categorize
+
+bp15up_genes2$intersection <- ifelse(bp15up_genes2$external_gene_name %in% intersections$external_gene_name, "intersection", "not")
+
+cardio_manual <- bp15up_genes2 %>%
+  filter(intersection == "not") %>%
+  left_join(gene_description)
+
+write_csv(cardio_manual, "/scratch/Shares/rinn/isabela/CARDELL/rnaseq/go_cardio_manual_categories.csv")
+
+```
+
+```{r - final(?) GO filters for heatmap}
+
+#filtered manually BP terms related to cardio
+bp15up_filter <- read_csv("/scratch/Shares/rinn/isabela/CARDELL/rnaseq/gProfiler_hsapiens_7-2-2022_2-16-48 PM__intersections_d15_up_cardiofilter.csv")
+
+#filtered manually molecular functions: structural or ion related
+mol15up_filter <- read_csv("/scratch/Shares/rinn/isabela/CARDELL/rnaseq/gProfiler_hsapiens_7-2-2022_2-16-48 PM__intersections_d15_up_mol_function.csv")
+
+
+cm_dif <- bp15up_filter %>%
+  filter(term_name == "cardiocyte differentiation") %>%
+  select(genes, term_name)
+
+struc_muscle <- mol15up_filter %>%
+  filter(term_name == "structural constituent of muscle") %>%
+  select(genes, term_name)
+
+heart_cont <- bp15up_filter %>%
+  filter(term_name == "heart contraction") %>%
+  select(genes, term_name)
+#ion15up_genes
+
+go_genes_final <- rbind(cm_dif, struc_muscle, heart_cont)
+
+go_genes_final <- go_genes_final %>%
+  dplyr :: rename(external_gene_name = genes) %>%
+  left_join(gene_description)
+
+write_csv(go_genes_final, "/scratch/Shares/rinn/isabela/CARDELL/rnaseq/go_genes_final.csv")
+
+#after manual selection
+
+go_genes_heatmap <- read_csv("/scratch/Shares/rinn/isabela/CARDELL/rnaseq/go_genes_final_manual_curated.csv")
+```
+
+```{r - genes heatmap}
+heatmap_cm <- go_genes_heatmap %>%
+  filter(category == "cardiocyte differentiation") %>%
+  select(external_gene_name)
+
+heatmap_struc <- go_genes_heatmap %>%
+  filter(category == "structural constituent of muscle") %>%
+  select(external_gene_name)
+
+heatmap_heart <- go_genes_heatmap %>%
+  filter(category == "heart contraction") %>%
+  select(external_gene_name)
+
+
+#grab COUNTS (???see what we plot here for real ############)
+deg15_counts <- deg15 %>%
+  select(external_gene_name, starts_with("X")) %>% select(-X)
+
+#merge counts in each gene list & calculate mean counts
+
+heatmap_cm <- heatmap_cm %>%
+  left_join(deg15_counts) %>%
+  pivot_longer(!external_gene_name, names_to = "sample", values_to = "counts")
+heatmap_cm_counts <- heatmap_cm %>%
+  mutate(day = gsub("X[1-3]", "", heatmap_cm$sample)) %>%
+  group_by(external_gene_name, day) %>%
+  mutate(mean_count = mean(counts)) %>%
+  select(external_gene_name, day, mean_count) %>%
+  distinct() %>%
+  pivot_wider(names_from = "day", values_from = "mean_count") %>%
+  column_to_rownames(var = "external_gene_name")
+
+
+heatmap_struc <- heatmap_struc %>%
+  left_join(deg15_counts) %>%
+  pivot_longer(!external_gene_name, names_to = "sample", values_to = "counts")
+heatmap_struc_counts <- heatmap_struc %>%
+  mutate(day = gsub("X[1-3]", "", heatmap_struc$sample)) %>%
+  group_by(external_gene_name, day) %>%
+  mutate(mean_count = mean(counts)) %>%
+  select(external_gene_name, day, mean_count) %>%
+  distinct() %>%
+  pivot_wider(names_from = "day", values_from = "mean_count") %>%
+  column_to_rownames(var = "external_gene_name")
+
+heatmap_heart <- heatmap_heart %>%
+  left_join(deg15_counts) %>%
+  pivot_longer(!external_gene_name, names_to = "sample", values_to = "counts")
+heatmap_heart_counts <- heatmap_heart %>%
+  mutate(day = gsub("X[1-3]", "", heatmap_heart$sample)) %>%
+  group_by(external_gene_name, day) %>%
+  mutate(mean_count = mean(counts)) %>%
+  select(external_gene_name, day, mean_count) %>%
+  distinct() %>%
+  pivot_wider(names_from = "day", values_from = "mean_count") %>%
+  column_to_rownames(var = "external_gene_name")
+
+
+## PLOT
+
+#transform log
+heatmap_cm_counts_log <- log2(heatmap_cm_counts)
+
+heatmap_struc_counts_log <- log2(heatmap_struc_counts)
+
+heatmap_heart_counts_log <- log2(heatmap_heart_counts)
+
+## Scale & adjust dendrogram (The most similar columns will appear clustered toward the left side of the plot. The columns that are more distant from each other will appear clustered toward the right side of the plot)
+#function
+sort_hclust <- function(...) as.hclust(dendsort(as.dendrogram(...)))
+
+#cardiocyte differentiation
+heatmap_cm_counts_log_scaled <- t(scale(t(heatmap_cm_counts_log))) 
+scaled_cluster_cols <- hclust(dist(t(heatmap_cm_counts_log_scaled)))
+scaled_cluster_cols <- sort_hclust(scaled_cluster_cols)
+
+pheatmap::pheatmap(heatmap_cm_counts_log_scaled, show_rownames = TRUE, 
+                   cluster_rows = T, cluster_cols = scaled_cluster_cols,
+                   breaks = seq(-1.2, 1.2, length.out = length(my_pal)),
+                   color = rev(my_pal), border_color = NA, fontsize_row = 10, fontsize_col = 10)
+
+#structural constituent of muscle
+heatmap_struc_counts_log_scaled <- t(scale(t(heatmap_struc_counts_log))) 
+scaled_cluster_cols <- hclust(dist(t(heatmap_struc_counts_log_scaled)))
+scaled_cluster_cols <- sort_hclust(scaled_cluster_cols)
+
+pheatmap::pheatmap(heatmap_struc_counts_log_scaled, show_rownames = TRUE, 
+                   cluster_rows = T, cluster_cols = scaled_cluster_cols,
+                   breaks = seq(-1.2, 1.2, length.out = length(my_pal)),
+                   color = rev(my_pal), border_color = NA, fontsize_row = 10, fontsize_col = 10)
+
+
+#heart contraction
+heatmap_heart_counts_log_scaled <- t(scale(t(heatmap_heart_counts_log))) 
+scaled_cluster_cols <- hclust(dist(t(heatmap_heart_counts_log_scaled)))
+scaled_cluster_cols <- sort_hclust(scaled_cluster_cols)
+
+pheatmap::pheatmap(heatmap_heart_counts_log_scaled, show_rownames = TRUE, 
+                   cluster_rows = T, cluster_cols = scaled_cluster_cols,
+                   breaks = seq(-1.2, 1.2, length.out = length(my_pal)),
+                   color = rev(my_pal),
+                   border_color = NA, fontsize_row = 10, fontsize_col = 10)
+
+
+# Save as pdf
+# Landscape 5 x 2.94
+```
+
+```{r - heatmap degup completo}
+
+heatmap_d15 <- deg15_up %>%
+  select(external_gene_name, starts_with("X")) %>% select(-X) %>%
+  pivot_longer(!external_gene_name, names_to = "sample", values_to = "counts")
+
+heatmap_d15_counts <- heatmap_d15 %>%
+  mutate(day = gsub("X[1-3]", "", heatmap_d15$sample)) %>%
+  group_by(external_gene_name, day) %>%
+  mutate(mean_count = mean(counts)) %>%
+  select(external_gene_name, day, mean_count) %>%
+  distinct() %>%
+  pivot_wider(names_from = "day", values_from = "mean_count") %>%
+  filter(!external_gene_name == "KLHL40") %>%
+  column_to_rownames(var = "external_gene_name") 
+
+#arrange by d15dox
+heatmap_d15_counts <- heatmap_d15_counts %>%
+  arrange(D15Pdox)
+
+## PLOT
+
+#transform log
+heatmap_d15_counts_log <- log2(heatmap_d15_counts)
+
+## Scale & adjust dendrogram (The most similar columns will appear clustered toward the left side of the plot. The columns that are more distant from each other will appear clustered toward the right side of the plot)
+#function
+sort_hclust <- function(...) as.hclust(dendsort(as.dendrogram(...)))
+
+#cardiocyte differentiation
+heatmap_d15_counts_log_scaled <- t(scale(t(heatmap_d15_counts_log))) 
+scaled_cluster_cols <- hclust(dist(t(heatmap_d15_counts_log_scaled)))
+scaled_cluster_cols <- sort_hclust(scaled_cluster_cols)
+
+pheatmap::pheatmap(heatmap_d15_counts_log_scaled, show_rownames = F, 
+                   cluster_rows = F, cluster_cols = scaled_cluster_cols,
+                   breaks = seq(-1.2, 1.2, length.out = length(my_pal)),
+                   color = rev(my_pal), border_color = NA, fontsize_row = 10, fontsize_col = 10)
+```
+
+
+```{r - template####}
+pdf("/scratch/Shares/rinn/isabela/rna_protein_complexes/analysis/00_mESC_grad/analysis/01_general_properties/results/ven_genes_filtered_tpm_old_newdata.pdf")
+
+venn_plot <- draw.pairwise.venn(length(genes_old$gene_id),
+                                length(filter_both$gene_id),
+                                length(gene_intersect$gene_intersect),
+                                category = c("Cody","Isabela"),
+                                scaled=TRUE,
+                                fill = c("dark gray", "red"),
+                                alpha = rep(0.5,2),
+                                cat.pos = c(-30,30),
+                                lty = "blank",
+                                cex = 2,
+                                ext.text = TRUE,
+                                cat.dist = c(0.03, 0.03),
+                                cat.cex = 2)
+dev.off()
+```
