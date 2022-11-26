@@ -191,7 +191,7 @@ logFC <- 2 # FC = 4  #trying to be conservative
 ```
 
 
-```{r}
+```{r === THIS ONE WAS USED}
 # analysis 1:
 
 # all DEGs
@@ -211,7 +211,7 @@ adult_enriched <- adult_fetal_filtered %>%
   filter(log2FoldChange >= logFC)
 ```
 
-```{r}
+```{r - this was NOT used}
 # analysis 2:
 
 # following the timecourse, two patters:
@@ -251,50 +251,6 @@ increase_all <- intersect(intersect(timecourse_12W_9W_filter$gene_id, timecourse
 
 both <- intersect(increase_all, adult_enriched$gene_id)
 #all are represented there, so let's only use the adult vs fetal analysis (1)
-```
-
-```{r - plots - NADA FICOU BOM, APAGAR}
-rlog_counts_id <- rlog_counts %>%
-  rownames_to_column(var = "gene_id")
-
-# Let's plot a heatmap of all fetal enriched - all replicates
-fetal_enriched_list <- fetal_enriched %>%
-  select(gene_id) %>%
-  left_join(rlog_counts_id) %>%
-  column_to_rownames(var = "gene_id")
-
-
-fetal_enriched_list_scaled <- t(scale(t(fetal_enriched_list))) 
-
-pheatmap::pheatmap(fetal_enriched_list_scaled, show_rownames = F, 
-                   cluster_rows = F, cluster_cols = T,
-                   breaks = seq(-3, 3, length.out = length(my_pal)),
-                   color = rev(my_pal), border_color = NA, fontsize_row = 8)
-
-# How it looks using  (log) mean tpm ====  uma bosta, tentei
-
-# How it looks using rlog_mean === ficou a mesma bosta do mean tpm
-rlog_mean <- rlog_counts_id %>%
-  pivot_longer(!gene_id, names_to = "sample", values_to = "rlog_count") %>%
-  left_join(samples) %>%
-  group_by(gene_id, tissue) %>% ####mean by tissue
-  mutate(rlog_mean = mean(rlog_count)) %>%
-  select(gene_id, tissue, rlog_mean) %>%
-  distinct() %>%
-  pivot_wider(names_from = tissue, values_from = rlog_mean)
-
-
-fetal_enriched_list <- fetal_enriched %>%
-  select(gene_id) %>%
-  left_join(rlog_mean) %>%
-  column_to_rownames(var = "gene_id")
-
-fetal_enriched_list_scaled <- t(scale(t(fetal_enriched_list))) 
-pheatmap::pheatmap(fetal_enriched_list_scaled, show_rownames = F, 
-                   cluster_rows = F, cluster_cols = T,
-                   breaks = seq(-0.5, 0.5, length.out = length(my_pal)),
-                  color = rev(my_pal), border_color = NA, fontsize_row = 8)
-
 ```
 
 ## Comparing with hESC diff

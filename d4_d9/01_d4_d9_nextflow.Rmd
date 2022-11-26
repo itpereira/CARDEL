@@ -1,0 +1,93 @@
+---
+title: "d4_d9_nextflow"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(dplyr)
+library(tidyverse)
+```
+
+1) Creating design file:
+sample,fastq_1,fastq_2,strandedness
+
+```{r}
+#create samplesheet
+
+sample <- c("D4_R1", "D4_R2", "D4_R3", "D9_R1", "D9_R2", "D9_R3")
+fastq_1 <- c("/scratch/Shares/rinn/isabela/CARDEL/data/6_S6_L002_R1_001.fastq.gz",
+            "/scratch/Shares/rinn/isabela/CARDEL/data/16_S16_L004_R1_001.fastq.gz",
+             "/scratch/Shares/rinn/isabela/CARDEL/data/26_S26_L008_R1_001.fastq.gz",
+            "/scratch/Shares/rinn/isabela/CARDEL/data/8_S8_L002_R1_001.fastq.gz",
+            "/scratch/Shares/rinn/isabela/CARDEL/data/18_S18_L004_R1_001.fastq.gz",
+              "/scratch/Shares/rinn/isabela/CARDEL/data/28_S28_L008_R1_001.fastq.gz")
+
+design <- data.frame(sample, fastq_1)
+
+design$fastq_2 <- ""
+design$strandedness <- "reverse"
+
+#save
+write.csv(design, "/scratch/Shares/rinn/isabela/CARDEL/d4_d9/design.csv", row.names = F)
+
+test <- read_csv("/scratch/Shares/rinn/isabela/CARDEL/d4_d9/design.csv")
+```
+
+2) nextflow.config file
+```{bash}
+nano nextflow.config
+
+process {
+  executor='slurm'
+  queue='short'
+  memory='16 GB'
+  maxForks=40
+}
+```
+
+3) run.sh file
+```{bash}
+nano run.sh
+
+#!/bin/bash
+#SBATCH -p long
+#SBATCH --job-name=d4_d9
+#SBATCH --mail-type=END,FAIL
+#SBATCH --mail-user=isabela.pereira@colorado.edu
+#SBATCH --nodes=1
+#SBATCH --ntasks=1
+#SBATCH --mem=6gb
+#SBATCH --time=30:00:00
+#SBATCH --output=nextflow.out
+#SBATCH --error=nextflow.err
+
+pwd; hostname; date
+echo "Go heart!"
+
+module load singularity/3.1.1
+
+nextflow run nf-core/rnaseq -r 3.8.1 \
+-resume \
+-profile singularity \
+--input /scratch/Shares/rinn/isabela/CARDEL/d4_d9/design.csv \
+--fasta /scratch/Shares/rinn/genomes/Homo_sapiens/Gencode/v38/GRCh38.p13.genome.fa.gz \
+--gtf /scratch/Shares/rinn/genomes/Homo_sapiens/Gencode/v38/gencode.v38.annotation.gtf \
+--aligner star_salmon \
+--gencode \
+--email isabela.pereira@colorado.edu \
+--outdir /scratch/Shares/rinn/isabela/CARDEL/d4_d9/results \
+-c nextflow.config
+
+date
+```
+
+4) RUN!!
+```{bash}
+sbatch run.sh
+
+#check status
+tail -f nextflow.out
+```
